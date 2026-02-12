@@ -761,6 +761,50 @@
             </div>
         </div>
 
+
+        <!-- INTEGRATIONS -->
+        <div class="section">
+            <div class="section-header" onclick="toggleSection(this)">
+                <i class="fas fa-plug"></i>
+                <h3>Интеграции (Gemini + SmartThings + Radio)</h3>
+            </div>
+            <div class="section-content">
+                <div class="input-group">
+                    <label>Gemini API Key</label>
+                    <input type="text" id="cfgGeminiKey" placeholder="AIza...">
+                </div>
+                <div class="input-group">
+                    <label>Gemini Модель</label>
+                    <input type="text" id="cfgGeminiModel" placeholder="gemini-2.5-flash-lite">
+                </div>
+                <div class="input-group">
+                    <label>SmartThings Personal Access Token</label>
+                    <input type="text" id="cfgSmartToken" placeholder="PAT token">
+                </div>
+                <div class="input-group">
+                    <label>Radio Stream URL</label>
+                    <input type="text" id="cfgMusicUrl" placeholder="https://...">
+                </div>
+                <div class="input-group">
+                    <label>Название станции</label>
+                    <input type="text" id="cfgMusicStation" placeholder="Vibe Waves">
+                </div>
+                <div class="grid">
+                    <button class="btn btn-primary" onclick="saveRuntimeConfig()"><i class="fas fa-save"></i><span>Сохранить интеграции</span></button>
+                    <button class="btn" onclick="loadGeminiModels()"><i class="fas fa-list"></i><span>Парсинг моделей Gemini</span></button>
+                    <button class="btn" onclick="syncSmartThings()"><i class="fas fa-sync"></i><span>Обновить SmartThings</span></button>
+                </div>
+                <div class="input-group">
+                    <label>Список моделей Gemini</label>
+                    <div id="geminiModelsList">--</div>
+                </div>
+                <div class="input-group">
+                    <label>Устройства SmartThings</label>
+                    <div id="smartthingsDevices">--</div>
+                </div>
+            </div>
+        </div>
+
         <!-- AI TEXT -->
         <div class="section">
             <div class="section-header" onclick="toggleSection(this)">
@@ -1044,6 +1088,8 @@
             if (title) params.push('musicTitle=' + encodeURIComponent(title));
             if (artist) params.push('musicArtist=' + encodeURIComponent(artist));
             params.push('musicProgress=30');
+            var streamUrl = document.getElementById('cfgMusicUrl');
+            if (streamUrl && streamUrl.value) params.push('musicStreamUrl=' + encodeURIComponent(streamUrl.value));
 
             var xhr = new XMLHttpRequest();
             xhr.open('GET', '/api/set?' + params.join('&'), true);
@@ -1188,7 +1234,9 @@
             heartbeatInterval = setInterval(sendHeartbeat, 3000);
             
             // Загружаем устройства
+            loadRuntimeConfig();
             loadDevices();
+            syncSmartThings();
             
             // Обновляем устройства каждые 2 секунды
             devicesUpdateInterval = setInterval(loadDevices, 2000);
@@ -1205,6 +1253,98 @@
             var xhr = new XMLHttpRequest();
             xhr.open('GET', '/api/admin/heartbeat?r=' + Math.random(), true);
             xhr.send();
+        }
+
+
+
+        function loadRuntimeConfig() {
+            var xhr = new XMLHttpRequest();
+            xhr.open('GET', '/api/config?r=' + Math.random(), true);
+            xhr.onreadystatechange = function() {
+                if (xhr.readyState === 4 && xhr.status === 200) {
+                    var cfg = JSON.parse(xhr.responseText || '{}');
+                    document.getElementById('cfgGeminiKey').value = cfg.geminiApiKey || '';
+                    document.getElementById('cfgGeminiModel').value = cfg.geminiModel || '';
+                    document.getElementById('cfgSmartToken').value = cfg.smartthingsToken || '';
+                    document.getElementById('cfgMusicUrl').value = cfg.musicStreamUrl || '';
+                    document.getElementById('cfgMusicStation').value = cfg.musicStationName || '';
+                }
+            };
+            xhr.send();
+        }
+
+        function saveRuntimeConfig() {
+            var payload = {
+                geminiApiKey: document.getElementById('cfgGeminiKey').value,
+                geminiModel: document.getElementById('cfgGeminiModel').value,
+                smartthingsToken: document.getElementById('cfgSmartToken').value,
+                musicStreamUrl: document.getElementById('cfgMusicUrl').value,
+                musicStationName: document.getElementById('cfgMusicStation').value
+            };
+            var xhr = new XMLHttpRequest();
+            xhr.open('POST', '/api/config', true);
+            xhr.setRequestHeader('Content-Type', 'application/json');
+            xhr.onreadystatechange = function() {
+                if (xhr.readyState === 4 && xhr.status === 200) {
+                    showNotification('Интеграции сохранены');
+                }
+            };
+            xhr.send(JSON.stringify(payload));
+        }
+
+        function loadGeminiModels() {
+            var xhr = new XMLHttpRequest();
+            xhr.open('GET', '/api/gemini/models?r=' + Math.random(), true);
+            xhr.onreadystatechange = function() {
+                if (xhr.readyState === 4) {
+                    var el = document.getElementById('geminiModelsList');
+                    if (xhr.status === 200) {
+                        var data = JSON.parse(xhr.responseText || '{}');
+                        el.textContent = (data.models || []).join(', ') || 'Нет моделей';
+                    } else {
+                        el.textContent = 'Ошибка загрузки моделей';
+                    }
+                }
+            };
+            xhr.send();
+        }
+
+        function syncSmartThings() {
+            var xhr = new XMLHttpRequest();
+            xhr.open('GET', '/api/smartthings/devices?r=' + Math.random(), true);
+            xhr.onreadystatechange = function() {
+                if (xhr.readyState === 4) {
+                    var el = document.getElementById('smartthingsDevices');
+                    if (xhr.status === 200) {
+                        var data = JSON.parse(xhr.responseText || '{}');
+                        var devices = data.devices || [];
+                        var html = [];
+                        for (var i = 0; i < devices.length; i++) {
+                            var d = devices[i];
+                            html.push('<div style="margin-bottom:6px;">' + escapeHtml(d.name || d.id) + ' [' + escapeHtml(d.status || '-') + '] ' +
+                                '<button class="btn btn-sm" onclick="controlSmartThing(\'' + escapeHtml(d.id) + '\',\'on\')">ON</button> ' +
+                                '<button class="btn btn-sm btn-danger" onclick="controlSmartThing(\'' + escapeHtml(d.id) + '\',\'off\')">OFF</button></div>');
+                        }
+                        el.innerHTML = html.join('') || 'Нет устройств';
+                        showNotification('SmartThings синхронизирован');
+                    } else {
+                        el.textContent = 'Ошибка SmartThings';
+                    }
+                }
+            };
+            xhr.send();
+        }
+
+        function controlSmartThing(deviceId, command) {
+            var xhr = new XMLHttpRequest();
+            xhr.open('POST', '/api/smartthings/device/control', true);
+            xhr.setRequestHeader('Content-Type', 'application/json');
+            xhr.onreadystatechange = function() {
+                if (xhr.readyState === 4 && xhr.status === 200) {
+                    syncSmartThings();
+                }
+            };
+            xhr.send(JSON.stringify({ deviceId: deviceId, command: command }));
         }
 
         function loadDevices() {
