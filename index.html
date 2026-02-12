@@ -1,0 +1,3170 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>UmaAI v.2.0</title>
+    <style>
+        /* --- CORE STYLES --- */
+        body {
+            background-color: #000000;
+            font-family: 'Courier New', Courier, monospace; 
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            width: 100%;
+            height: 100%;
+            -webkit-user-select: none;
+            color: #fff;
+        }
+
+        .wrapper {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            display: table;
+            text-align: center;
+        }
+        
+        .cell {
+            display: table-cell;
+            vertical-align: middle;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* --- FACE ENGINE (УВЕЛИЧЕНО) --- */
+        .face-container {
+            display: block;
+            margin: 0 auto;
+            width: 300px;
+            height: 220px;
+            position: relative;
+            
+            /* Центр экрана в обычном (idle) режиме */
+            top: 45px; 
+            
+            /* УВЕЛИЧЕНИЕ ЛИЦА ДЛЯ ТЕЛЕФОНА */
+            -webkit-transform: scale(1.3) translateZ(0); 
+            transform: scale(1.3) translateZ(0);
+            
+            -webkit-transition: all 0.5s ease-in-out;
+            transition: all 0.5s ease-in-out;
+            will-change: transform;
+        }
+
+        .eyes-row {
+            height: 100px;
+            width: 100%;
+            position: relative;
+            margin-bottom: 40px; /* Чуть больше отступ до рта */
+        }
+
+        .eye {
+            width: 90px;
+            height: 90px;
+            background-color: white;
+            border-radius: 15px; 
+            position: absolute;
+            top: 0;
+            border: 2px solid #999999;
+            
+            -webkit-transform: translate3d(0,0,0) scale(1) translateZ(0);
+            transform: translate3d(0,0,0) scale(1) translateZ(0);
+            
+            -webkit-transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+            transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+            will-change: transform;
+        }
+
+        .eye.left { left: 20px; }
+        .eye.right { right: 20px; }
+
+        .mouth {
+            width: 90px; /* Чуть шире */
+            height: 6px; 
+            background-color: white;
+            margin: 0 auto;
+            border-radius: 5px;
+            border: 1px solid #999999;
+            
+            position: relative;
+            -webkit-transform: translateZ(0);
+            transform: translateZ(0);
+            -webkit-transition: all 0.2s ease-out;
+            transition: all 0.2s ease-out;
+            will-change: transform;
+        }
+
+        /* --- UI MODES --- */
+        
+        /* MINI MODE (левый нижний угол, когда нужны виджеты/экраны) */
+        .face-container.mini-mode {
+            position: fixed;
+            left: 0;
+            bottom: -18px;
+            top: auto;
+            /* В мини-режиме лицо в 2 раза меньше, чем основное */
+            -webkit-transform: scale(0.5) translateZ(0);
+            transform: scale(0.5) translateZ(0);
+            -webkit-transform-origin: left bottom;
+            transform-origin: left bottom;
+            z-index: 15;
+        }
+        
+        /* В режиме vibe - лицо под строкой музыки */
+        .face-container.vibe-mode {
+            bottom: 60px !important; /* Выше музыкальной полосы */
+        }
+        
+        /* В режиме weather - лицо под часами погоды */
+        .face-container.weather-mode {
+            bottom: 60px !important; /* Выше часов погоды */
+        }
+
+        /* Ночной сон: глаза закрыты */
+        .face-container.sleep .eye {
+            -webkit-transform: scaleY(0.1);
+            transform: scaleY(0.1);
+        }
+
+        /* --- ANIMATIONS & STATES --- */
+        
+        /* 1. BLINK (Моргание) - оптимизировано */
+        .face-container.blink .eye {
+            -webkit-animation: blinkAnim 0.15s linear;
+            animation: blinkAnim 0.15s linear;
+            will-change: transform;
+        }
+        @-webkit-keyframes blinkAnim {
+            0%   { -webkit-transform: scaleY(1) translateZ(0); }
+            50%  { -webkit-transform: scaleY(0.05) translateZ(0); }
+            100% { -webkit-transform: scaleY(1) translateZ(0); }
+        }
+        @keyframes blinkAnim {
+            0%   { transform: scaleY(1) translateZ(0); }
+            50%  { transform: scaleY(0.05) translateZ(0); }
+            100% { transform: scaleY(1) translateZ(0); }
+        }
+
+        /* 2. LISTENING (Слушаю - зеленый) */
+        .face-container.listening .eye {
+            background-color: #00ffaa;
+            border: 3px solid #00ffaa;
+            -webkit-transform: scale(1.1) translateZ(0); 
+            transform: scale(1.1) translateZ(0);
+        }
+
+        /* 3. THINKING (Думаю - оранжевый прищур) */
+        .face-container.thinking .eye {
+             background-color: #ffaa00;
+             border: 3px solid #ffaa00;
+             -webkit-transform: scaleY(0.25) translateZ(0);
+             -moz-transform: scaleY(0.25) translateZ(0);
+             transform: scaleY(0.25) translateZ(0);
+             -webkit-animation: thinkAnim 1s infinite 0.3s;
+             -moz-animation: thinkAnim 1s infinite 0.3s;
+             animation: thinkAnim 1s infinite 0.3s;
+        }
+        @-webkit-keyframes thinkAnim {
+            0%, 100% { -webkit-transform: translateY(0) scaleY(0.25) translateZ(0); }
+            50% { -webkit-transform: translateY(-8px) scaleY(0.25) translateZ(0); }
+        }
+        @-moz-keyframes thinkAnim {
+            0%, 100% { -moz-transform: translateY(0) scaleY(0.25) translateZ(0); }
+            50% { -moz-transform: translateY(-8px) scaleY(0.25) translateZ(0); }
+        }
+        @keyframes thinkAnim {
+            0%, 100% { transform: translateY(0) scaleY(0.25) translateZ(0); }
+            50% { transform: translateY(-8px) scaleY(0.25) translateZ(0); }
+        }
+
+        /* 4. TALKING (Разговор) */
+        .face-container.talking .mouth {
+            -webkit-animation: talkMouthAnim 0.3s infinite alternate;
+            -moz-animation: talkMouthAnim 0.3s infinite alternate;
+            animation: talkMouthAnim 0.3s infinite alternate;
+        }
+        .face-container.talking .eye {
+            -webkit-animation: talkEyeAnim 0.3s infinite alternate;
+            -moz-animation: talkEyeAnim 0.3s infinite alternate;
+            animation: talkEyeAnim 0.3s infinite alternate;
+        }
+        @-webkit-keyframes talkMouthAnim {
+            0% { -webkit-transform: scale(1, 1) translateZ(0); }
+            100% { -webkit-transform: scale(1.3, 8) translateZ(0); } /* Рот открывается шире */
+        }
+        @-moz-keyframes talkMouthAnim {
+            0% { -moz-transform: scale(1, 1) translateZ(0); }
+            100% { -moz-transform: scale(1.3, 8) translateZ(0); } /* Рот открывается шире */
+        }
+        @keyframes talkMouthAnim {
+            0% { transform: scale(1, 1) translateZ(0); }
+            100% { transform: scale(1.3, 8) translateZ(0); }
+        }
+        @-webkit-keyframes talkEyeAnim {
+            0% { -webkit-transform: translateY(0) translateZ(0); }
+            100% { -webkit-transform: translateY(-4px) translateZ(0); }
+        }
+        @-moz-keyframes talkEyeAnim {
+            0% { -moz-transform: translateY(0) translateZ(0); }
+            100% { -moz-transform: translateY(-4px) translateZ(0); }
+        }
+        @keyframes talkEyeAnim {
+            0% { transform: translateY(0) translateZ(0); }
+            100% { transform: translateY(-4px) translateZ(0); }
+        }
+
+        /* 5. WINK (Подмиг) */
+        .face-container.wink .eye.right {
+            -webkit-transform: scaleY(0.1);
+            transform: scaleY(0.1);
+        }
+        .face-container.wink .mouth {
+            -webkit-transform: rotate(-5deg) translateY(-2px);
+            transform: rotate(-5deg) translateY(-2px);
+        }
+
+        /* 6. YAWN (Зевок) */
+        .face-container.yawn .mouth {
+            height: 60px;
+            width: 50px;
+            border-radius: 20px;
+            /* Поднимаем рот выше, чтобы он не выезжал за нижний край экрана */
+            -webkit-transform: translateY(-10px);
+            transform: translateY(-10px);
+        }
+        .face-container.yawn .eye {
+            -webkit-transform: scaleY(0.5) translateY(20px);
+            transform: scaleY(0.5) translateY(20px);
+        }
+
+        /* 7. DIZZY (Головокружение) */
+        .face-container.dizzy {
+             -webkit-animation: shake 0.5s infinite;
+             -moz-animation: shake 0.5s infinite;
+             animation: shake 0.5s infinite;
+        }
+        .face-container.dizzy .eye.left { -webkit-transform: translateY(-10px); -moz-transform: translateY(-10px); }
+        .face-container.dizzy .eye.right { -webkit-transform: translateY(10px); -moz-transform: translateY(10px); }
+        @-webkit-keyframes shake {
+            0% { -webkit-transform: rotate(0deg) translateZ(0); }
+            25% { -webkit-transform: rotate(5deg) translateZ(0); }
+            75% { -webkit-transform: rotate(-5deg) translateZ(0); }
+            100% { -webkit-transform: rotate(0deg) translateZ(0); }
+        }
+        @-moz-keyframes shake {
+            0% { -moz-transform: rotate(0deg) translateZ(0); }
+            25% { -moz-transform: rotate(5deg) translateZ(0); }
+            75% { -moz-transform: rotate(-5deg) translateZ(0); }
+            100% { -moz-transform: rotate(0deg) translateZ(0); }
+        }
+        @keyframes shake {
+            0% { transform: rotate(0deg) translateZ(0); }
+            25% { transform: rotate(5deg) translateZ(0); }
+            75% { transform: rotate(-5deg) translateZ(0); }
+            100% { transform: rotate(0deg) translateZ(0); }
+        }
+
+        /* 8. SAD/OFFLINE (грусть, синие глаза) */
+        .face-container.sad .eye {
+            background-color: #3399ff;
+            border: 3px solid #3399ff;
+            -webkit-transform: translateY(6px) translateZ(0);
+            transform: translateY(6px) translateZ(0);
+        }
+        .face-container.sad .mouth {
+            background-color: #3399ff;
+            -webkit-transform: translateY(14px) scale(0.9);
+            transform: translateY(14px) scale(0.9);
+            border-radius: 0 0 50% 50%; /* опущенный уголок рта (печаль) */
+        }
+
+        /* --- WIDGETS --- */
+        .widgets-layer {
+            position: absolute; 
+            top: 0; 
+            left: 0; 
+            width: 100%; 
+            height: 100%;
+            pointer-events: none; 
+            z-index: 5; 
+            display: none;
+            -webkit-transform: translateZ(0);
+            transform: translateZ(0);
+        }
+        .widgets-layer.active { 
+            display: block; 
+        }
+
+        /* Общий контейнер под полноэкранный режим (упрощённый, без flex) */
+        .widget-screen {
+            box-sizing: border-box;
+            width: 100%;
+            height: 100%;
+            padding: 16px 10px 40px 10px;
+            display: none;
+            text-align: left;
+            color: #ffffff;
+            -webkit-transform: translateZ(0);
+            transform: translateZ(0);
+            pointer-events: auto; /* Включаем клики для виджетов */
+        }
+        .widget-screen.active {
+            display: block;
+        }
+
+        /* --- ПОГОДА (простой белый текст) --- */
+        .weather-screen {
+            text-align: center;
+            padding-top: 5%;
+            padding-left: 10px;
+            padding-right: 10px;
+            box-sizing: border-box;
+            position: relative;
+            z-index: 20;
+        }
+        .weather-screen-main {
+            margin-bottom: 20px;
+        }
+        .temp-big { 
+            font-size: 120px; 
+            margin: 0;
+            line-height: 1.1;
+        }
+        .weather-icon { 
+            font-size: 36px; 
+            display: inline-block; 
+            margin-right: 12px;
+            vertical-align: middle;
+        }
+        .city-name { 
+            font-size: 24px; 
+            color: #ffffff;
+            margin-top: 8px;
+        }
+        .weather-forecast {
+            margin-top: 20px;
+            text-align: center;
+        }
+        .forecast-item {
+            display: inline-block;
+            padding: 8px 12px;
+            border: 1px solid #ffffff;
+            margin-right: 6px;
+            margin-bottom: 6px;
+            font-size: 18px;
+        }
+        .forecast-time {
+            margin-bottom: 4px;
+            font-size: 16px;
+        }
+        .forecast-temp {
+            font-weight: bold;
+            font-size: 20px;
+        }
+
+        /* --- УМНЫЙ ДОМ (большой квадрат по центру) --- */
+        .home-screen {
+            padding: 20px !important;
+            text-align: center;
+            position: relative;
+            z-index: 20;
+            pointer-events: auto; /* Явно включаем клики для экрана умного дома */
+        }
+        .home-devices-row {
+            display: inline-block;
+            width: auto;
+            position: relative;
+            z-index: 25;
+        }
+        .device-card {
+            display: inline-block;
+            width: 200px;
+            min-height: 200px;
+            padding: 25px 20px;
+            background: #111111;
+            cursor: pointer;
+            -webkit-box-sizing: border-box;
+            -moz-box-sizing: border-box;
+            box-sizing: border-box;
+            text-align: center;
+            -webkit-border-radius: 15px;
+            -moz-border-radius: 15px;
+            border-radius: 15px;
+            -webkit-transition: all 0.3s ease;
+            -moz-transition: all 0.3s ease;
+            transition: all 0.3s ease;
+            position: relative;
+            z-index: 30;
+            pointer-events: auto; /* Явно включаем клики для карточки устройства */
+        }
+        .device-card.on {
+            background: rgba(255, 204, 0, 0.15);
+            -webkit-box-shadow: 0 0 40px rgba(255, 204, 0, 0.5);
+            -moz-box-shadow: 0 0 40px rgba(255, 204, 0, 0.5);
+            box-shadow: 0 0 40px rgba(255, 204, 0, 0.5);
+        }
+        .device-icon { 
+            display: block;
+            font-size: 50px;
+            margin-bottom: 15px;
+            color: #ffffff;
+            position: relative;
+            z-index: 1;
+        }
+        .device-card.on .device-icon {
+            color: #ffcc00;
+        }
+        .device-name { 
+            display: block;
+            font-weight: bold;
+            margin-bottom: 12px;
+            font-size: 20px;
+            color: #ffffff !important;
+            position: relative;
+            z-index: 1;
+            visibility: visible !important;
+            opacity: 1 !important;
+            text-shadow: 2px 2px 4px #000000;
+            -webkit-text-shadow: 2px 2px 4px #000000;
+            -moz-text-shadow: 2px 2px 4px #000000;
+        }
+        .device-status { 
+            display: block;
+            font-size: 18px;
+            font-weight: bold;
+            color: #cccccc !important;
+            position: relative;
+            z-index: 1;
+            visibility: visible !important;
+            opacity: 1 !important;
+            text-shadow: 2px 2px 4px #000000;
+            -webkit-text-shadow: 2px 2px 4px #000000;
+            -moz-text-shadow: 2px 2px 4px #000000;
+        }
+        .device-card.on .device-status {
+            color: #ffdd44 !important;
+            text-shadow: 2px 2px 4px #000000, 0 0 8px #ffcc00;
+            -webkit-text-shadow: 2px 2px 4px #000000, 0 0 8px #ffcc00;
+            -moz-text-shadow: 2px 2px 4px #000000, 0 0 8px #ffcc00;
+        }
+        
+        /* --- ТЕКСТ LLM --- */
+        .text-screen {
+            padding: 20px 15px 60px 15px;
+            overflow-y: auto;
+            overflow-x: hidden;
+            -webkit-overflow-scrolling: touch;
+        }
+        .ai-message {
+            font-size: 16px; 
+            line-height: 1.6; 
+            text-align: left;
+            color: #ffffff !important;
+            white-space: normal;
+            word-wrap: break-word;
+            overflow: visible;
+            min-height: 20px;
+            display: block;
+            width: 100%;
+            visibility: visible;
+            -webkit-transform: translateZ(0);
+            transform: translateZ(0);
+        }
+        
+        /* --- НОЧНЫЕ ЧАСЫ --- */
+        .clock-screen {
+            text-align: center;
+            padding-top: 18%;
+        }
+        .clock-big { 
+            font-size: 96px; 
+            color: #ffffff; 
+        }
+        .date-small { 
+            font-size: 22px; 
+            color: #ffffff; 
+            margin-top: 4px;
+        }
+        .night-icon {
+            margin-top: 6px;
+            font-size: 14px;
+        }
+
+        /* --- ТАЙМЕР (КРУПНЫЕ ЦИФРЫ ПО ЦЕНТРУ ЭКРАНА, ЛИЦО СВЕРХУ) --- */
+        .timer-screen {
+            position: absolute;
+            top: 70%; /* ещё немного ниже для более точного визуального центра */
+            left: 0;
+            right: 0;
+            /* Чётко по центру по вертикали */
+            -webkit-transform: translateY(-50%) translateZ(0);
+            transform: translateY(-50%) translateZ(0);
+            text-align: center;
+            pointer-events: none; /* клики идут по лицу/странице */
+        }
+        .timer-ring {
+            display: none; /* отключаем кольцо, оставляем только цифры */
+        }
+        .timer-progress {
+            display: none;
+        }
+        .timer-time {
+            font-size: 140px;
+            margin-top: 0;
+            color: #ffffff;
+            -webkit-transform: translateZ(0);
+            transform: translateZ(0);
+            will-change: transform;
+        }
+
+        /* --- МУЗЫКА (ПОЛОСА ВНИЗУ ЭКРАНА) --- */
+        .music-screen {
+            position: fixed;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            padding: 8px 14px 8px 14px;
+            background: rgba(26, 26, 26, 0.85);
+            box-sizing: border-box;
+            display: none;
+            -webkit-transform: translateZ(0);
+            transform: translateZ(0);
+            z-index: 10;
+        }
+        .music-screen.active {
+            display: -webkit-box;
+            display: -moz-box;
+            display: -webkit-flex;
+            display: -moz-flex;
+            display: flex;
+            -webkit-box-orient: vertical;
+            -moz-box-orient: vertical;
+            -webkit-flex-direction: column;
+            -moz-flex-direction: column;
+            flex-direction: column;
+            -webkit-box-align: start;
+            -moz-box-align: start;
+            -webkit-align-items: flex-start;
+            -moz-align-items: flex-start;
+            align-items: flex-start;
+            -webkit-box-pack: center;
+            -moz-box-pack: center;
+            -webkit-justify-content: center;
+            -moz-justify-content: center;
+            justify-content: center;
+        }
+        .music-title {
+            font-size: 16px;
+            margin-bottom: 4px;
+        }
+        .music-artist {
+            font-size: 14px;
+            margin-bottom: 6px;
+        }
+        .music-progress {
+            width: 100%;
+            height: 3px;
+            background: #ffffff;
+        }
+        .music-progress-fill {
+            height: 100%;
+            width: 30%;
+            background: #ffffff;
+        }
+
+        /* Анимация "дворники" для лица в режиме музыки */
+        .face-container.dance {
+            opacity: 0.4;
+            -webkit-animation: faceDance 1.2s infinite ease-in-out;
+            -moz-animation: faceDance 1.2s infinite ease-in-out;
+            animation: faceDance 1.2s infinite ease-in-out;
+        }
+        @-webkit-keyframes faceDance {
+            0%   { -webkit-transform: translate3d(0,0,0) rotate(-6deg) scale(1.3); }
+            50%  { -webkit-transform: translate3d(0,0,0) rotate(6deg) scale(1.3); }
+            100% { -webkit-transform: translate3d(0,0,0) rotate(-6deg) scale(1.3); }
+        }
+        @-moz-keyframes faceDance {
+            0%   { -moz-transform: translate3d(0,0,0) rotate(-6deg) scale(1.3); }
+            50%  { -moz-transform: translate3d(0,0,0) rotate(6deg) scale(1.3); }
+            100% { -moz-transform: translate3d(0,0,0) rotate(-6deg) scale(1.3); }
+        }
+        @keyframes faceDance {
+            0%   { transform: translate3d(0,0,0) rotate(-6deg) scale(1.3); }
+            50%  { transform: translate3d(0,0,0) rotate(6deg) scale(1.3); }
+            100% { transform: translate3d(0,0,0) rotate(-6deg) scale(1.3); }
+        }
+
+        /* Когда таймер закончился — мигающее время и "волнуется" лицо */
+        .timer-finished .timer-time {
+            -webkit-animation: timerBlink 0.6s infinite alternate;
+            -moz-animation: timerBlink 0.6s infinite alternate;
+            animation: timerBlink 0.6s infinite alternate;
+        }
+        @-webkit-keyframes timerBlink {
+            0%   { -webkit-transform: scale(1) translateZ(0); visibility: visible; }
+            100% { -webkit-transform: scale(0.3) translateZ(0); visibility: hidden; }
+        }
+        @-moz-keyframes timerBlink {
+            0%   { -moz-transform: scale(1) translateZ(0); visibility: visible; }
+            100% { -moz-transform: scale(0.3) translateZ(0); visibility: hidden; }
+        }
+        @keyframes timerBlink {
+            0%   { transform: scale(1) translateZ(0); visibility: visible; }
+            100% { transform: scale(0.3) translateZ(0); visibility: hidden; }
+        }
+        .face-container.timer-alert {
+            -webkit-animation: faceAlert 0.4s 4 ease-in-out;
+            -moz-animation: faceAlert 0.4s 4 ease-in-out;
+            animation: faceAlert 0.4s 4 ease-in-out;
+        }
+        @-webkit-keyframes faceAlert {
+            0%   { -webkit-transform: translateY(10px) translateZ(0); }
+            25%  { -webkit-transform: translateY(4px) translateZ(0); }
+            75%  { -webkit-transform: translateY(16px) translateZ(0); }
+            100% { -webkit-transform: translateY(10px) translateZ(0); }
+        }
+        @-moz-keyframes faceAlert {
+            0%   { -moz-transform: translateY(10px) translateZ(0); }
+            25%  { -moz-transform: translateY(4px) translateZ(0); }
+            75%  { -moz-transform: translateY(16px) translateZ(0); }
+            100% { -moz-transform: translateY(10px) translateZ(0); }
+        }
+        @keyframes faceAlert {
+            0%   { transform: translateY(10px) translateZ(0); }
+            25%  { transform: translateY(4px) translateZ(0); }
+            75%  { transform: translateY(16px) translateZ(0); }
+            100% { transform: translateY(10px) translateZ(0); }
+        }
+
+        /* Маленькое лицо по центру сверху для режима таймера */
+        .face-container.timer-mode {
+            position: fixed;
+            top: 10px;
+            left: 50%;
+            margin-left: -150px; /* ширина лица 300px -> центр */
+            -webkit-transform: scale(0.7);
+            transform: scale(0.7);
+            -webkit-transform-origin: top center;
+            transform-origin: top center;
+        }
+
+        /* --- АНИМАЦИИ ЗАРЯДКИ --- */
+        
+        /* 9. CHARGING (Подключен к зарядке - оптимизированная анимация) */
+        .face-container.charging {
+            -webkit-animation: chargeAnim 1.2s ease-in-out;
+            -moz-animation: chargeAnim 1.2s ease-in-out;
+            animation: chargeAnim 1.2s ease-in-out;
+        }
+        @-webkit-keyframes chargeAnim {
+            0%   { -webkit-transform: scale(1.3) translateZ(0); }
+            50%  { -webkit-transform: scale(1.4) translateZ(0); }
+            100% { -webkit-transform: scale(1.3) translateZ(0); }
+        }
+        @-moz-keyframes chargeAnim {
+            0%   { -moz-transform: scale(1.3) translateZ(0); }
+            50%  { -moz-transform: scale(1.4) translateZ(0); }
+            100% { -moz-transform: scale(1.3) translateZ(0); }
+        }
+        @keyframes chargeAnim {
+            0%   { transform: scale(1.3) translateZ(0); }
+            50%  { transform: scale(1.4) translateZ(0); }
+            100% { transform: scale(1.3) translateZ(0); }
+        }
+        .face-container.charging .eye {
+            background-color: #00ff88;
+            border: 3px solid #00ff88;
+        }
+
+        /* 10. DISCHARGING (Отключен от зарядки - оптимизированная пульсация) */
+        .face-container.discharging {
+            -webkit-animation: pulseAnim 1.2s infinite ease-in-out;
+            -moz-animation: pulseAnim 1.2s infinite ease-in-out;
+            animation: pulseAnim 1.2s infinite ease-in-out;
+        }
+        @-webkit-keyframes pulseAnim {
+            0%, 100% { 
+                -webkit-transform: scale(1.3) translateZ(0); 
+            }
+            50% { 
+                -webkit-transform: scale(1.36) translateZ(0); 
+            }
+        }
+        @-moz-keyframes pulseAnim {
+            0%, 100% { 
+                -moz-transform: scale(1.3) translateZ(0); 
+            }
+            50% { 
+                -moz-transform: scale(1.36) translateZ(0); 
+            }
+        }
+        @keyframes pulseAnim {
+            0%, 100% { 
+                transform: scale(1.3) translateZ(0); 
+            }
+            50% { 
+                transform: scale(1.36) translateZ(0); 
+            }
+        }
+        .face-container.discharging .eye {
+            background-color: #ffaa44;
+            border: 3px solid #ffaa44;
+        }
+
+        /* --- VIBE (ФОТОРАМКА) --- */
+        .vibe-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: #000000;
+            display: none;
+            overflow: hidden;
+            -webkit-transform: translateZ(0);
+            transform: translateZ(0);
+            z-index: 5;
+        }
+        .vibe-screen.active {
+            display: block;
+        }
+        
+        /* Часы сверху в стиле lofi.co */
+        .vibe-clock {
+            position: absolute;
+            top: 20px;
+            left: 0;
+            right: 0;
+            text-align: center;
+            z-index: 20;
+            pointer-events: none;
+        }
+        .vibe-time {
+            font-size: 72px;
+            font-family: 'Courier New', Courier, monospace;
+            color: #ffffff;
+            text-shadow: 2px 2px 8px rgba(0,0,0,0.8);
+            display: inline-block;
+        }
+        .vibe-time-ampm {
+            font-size: 24px;
+            font-family: 'Courier New', Courier, monospace;
+            color: #ffffff;
+            text-shadow: 2px 2px 8px rgba(0,0,0,0.8);
+            vertical-align: top;
+            margin-left: 8px;
+            display: none; /* Скрыт для 24-часового формата */
+        }
+        .vibe-date-temp {
+            margin-top: 8px;
+            display: block;
+        }
+        .vibe-date {
+            font-size: 18px;
+            font-family: 'Courier New', Courier, monospace;
+            color: #ffffff;
+            text-shadow: 2px 2px 8px rgba(0,0,0,0.8);
+            display: inline-block;
+            margin-right: 8px;
+        }
+        .vibe-temp {
+            font-size: 18px;
+            font-family: 'Courier New', Courier, monospace;
+            color: #ffffff;
+            text-shadow: 2px 2px 8px rgba(0,0,0,0.8);
+            display: inline-block;
+        }
+        
+        /* Контейнер для изображений */
+        .vibe-images-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            overflow: hidden;
+        }
+        .vibe-image-wrapper {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            -webkit-transition: -webkit-transform 0.4s ease-out;
+            -moz-transition: -moz-transform 0.4s ease-out;
+            transition: transform 0.4s ease-out;
+            -webkit-transform: translateX(0) translateZ(0);
+            transform: translateX(0) translateZ(0);
+            will-change: transform;
+        }
+        .vibe-image {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            background: #000000;
+        }
+        
+        /* Индикатор страниц */
+        .vibe-indicator {
+            position: absolute;
+            bottom: 70px;
+            left: 0;
+            right: 0;
+            text-align: center;
+            z-index: 20;
+            pointer-events: none;
+        }
+        .vibe-dot {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            margin: 0 4px;
+            background: rgba(255,255,255,0.4);
+            -webkit-border-radius: 50%;
+            -moz-border-radius: 50%;
+            border-radius: 50%;
+        }
+        .vibe-dot.active {
+            background: #ffffff;
+        }
+        
+        /* Музыкальная полоса внизу для vibe */
+        .vibe-music-bar {
+            position: absolute;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            padding: 10px 14px;
+            background: rgba(26, 26, 26, 0.85);
+            z-index: 15;
+            display: -webkit-box;
+            display: -moz-box;
+            display: -webkit-flex;
+            display: flex;
+            -webkit-box-align: center;
+            -moz-box-align: center;
+            -webkit-align-items: center;
+            align-items: center;
+        }
+        .vibe-music-icon {
+            width: 32px;
+            height: 32px;
+            background: #333;
+            -webkit-border-radius: 4px;
+            -moz-border-radius: 4px;
+            border-radius: 4px;
+            margin-right: 10px;
+            display: -webkit-box;
+            display: -moz-box;
+            display: -webkit-flex;
+            display: flex;
+            -webkit-box-align: center;
+            -moz-box-align: center;
+            -webkit-align-items: center;
+            align-items: center;
+            -webkit-box-pack: center;
+            -moz-box-pack: center;
+            -webkit-justify-content: center;
+            justify-content: center;
+            font-size: 18px;
+            color: #fff;
+        }
+        .vibe-music-info {
+            -webkit-box-flex: 1;
+            -moz-box-flex: 1;
+            -webkit-flex: 1;
+            flex: 1;
+        }
+        .vibe-music-title {
+            font-size: 14px;
+            color: #ffffff;
+            margin-bottom: 2px;
+        }
+        .vibe-music-artist {
+            font-size: 12px;
+            color: #aaaaaa;
+        }
+        .vibe-music-controls {
+            display: -webkit-box;
+            display: -moz-box;
+            display: -webkit-flex;
+            display: flex;
+            -webkit-box-align: center;
+            -moz-box-align: center;
+            -webkit-align-items: center;
+            align-items: center;
+        }
+        .vibe-control-btn {
+            width: 32px;
+            height: 32px;
+            background: transparent;
+            border: none;
+            color: #ffffff;
+            font-size: 18px;
+            cursor: pointer;
+            margin: 0 4px;
+        }
+
+        /* --- BOOT --- */
+        .boot-screen {
+            font-size: 12px;
+            color: #ffffff;
+            text-align: center;
+            padding-top: 20%;
+        }
+        .boot-title {
+            font-size: 52px;
+            margin-bottom: 24px;
+        }
+        .boot-sub {
+            font-size: 14px;
+            margin-bottom: 18px;
+        }
+        .boot-bar {
+            display: inline-block;
+            margin-top: 10px;
+        }
+        .boot-cube {
+            width: 18px;
+            height: 18px;
+            border: 2px solid #ffffff;
+            display: inline-block;
+            margin: 0 4px;
+            background: transparent;
+        }
+        .boot-cube.filled {
+            background: #ffffff;
+        }
+
+        /* --- АДАПТАЦИЯ ПОД ВЕРТИКАЛЬНЫЙ ЭКРАН --- */
+        @media screen and (orientation: portrait) {
+            /* Чуть уменьшаем лицо, чтобы глаза не выходили за верх */
+            .face-container {
+                top: 30px;
+                -webkit-transform: scale(1.1);
+                transform: scale(1.1);
+            }
+
+            /* Адаптация таймера под узкий вертикальный экран */
+            .timer-time {
+                font-size: 96px; /* меньше, чтобы не уезжать за правый край */
+            }
+        }
+        
+        .subtitles {
+            position: absolute; 
+            bottom: 12px; 
+            width: 100%;
+            text-align: center; 
+            font-size: 16px; 
+            color: #aaa;
+            text-shadow: 1px 1px 0 #000;
+        }
+
+    </style>
+</head>
+<body>
+
+    <div class="widgets-layer" id="widgets">
+        <!-- Погода -->
+        <div class="widget-screen weather-screen" id="weatherWidget">
+            <div class="weather-screen-main">
+                <span class="weather-icon" id="weatherIcon">*</span>
+                <h1 class="temp-big" id="tempDisplay">-5°</h1>
+                <div class="city-name" id="cityDisplay">Zerenda</div>
+            </div>
+            <div class="weather-forecast" id="weatherForecast">
+                <!-- сюда будут добавляться слоты прогноза -->
+            </div>
+        </div>
+        <!-- Дом -->
+        <div class="widget-screen home-screen" id="homeWidget">
+            <div class="home-devices-row" id="homeDevices">
+                <!-- карточки устройств -->
+            </div>
+        </div>
+        <!-- Текст -->
+        <div class="widget-screen text-screen" id="textWidget">
+            <div class="ai-message" id="aiOutput"></div>
+        </div>
+        <!-- Часы (ночной режим) -->
+        <div class="widget-screen clock-screen" id="clockWidget">
+            <div class="clock-big" id="bigClock">00:00</div>
+            <div class="date-small" id="bigDate">loading</div>
+            <div class="night-icon">* ночной режим</div>
+        </div>
+        <!-- Таймер -->
+        <div class="widget-screen timer-screen" id="timerWidget">
+            <div class="timer-ring">
+                <div class="timer-progress" id="timerProgress"></div>
+            </div>
+            <div class="timer-time" id="timerTime">00:00</div>
+        </div>
+        <!-- Музыка -->
+        <div class="widget-screen music-screen" id="musicWidget">
+            <div class="music-cover" id="musicCover"></div>
+            <div class="music-info">
+                <div class="music-title" id="musicTitle"></div>
+                <div class="music-artist" id="musicArtist"></div>
+                <div class="music-progress">
+                    <div class="music-progress-fill" id="musicProgressFill"></div>
+                </div>
+            </div>
+        </div>
+        <!-- Boot -->
+        <div class="widget-screen boot-screen" id="bootWidget">
+            <div class="boot-title">UmaAI</div>
+            <div class="boot-sub">загрузка системы</div>
+            <div class="boot-bar" id="bootBar">
+                <span class="boot-cube"></span>
+                <span class="boot-cube"></span>
+                <span class="boot-cube"></span>
+                <span class="boot-cube"></span>
+                <span class="boot-cube"></span>
+            </div>
+        </div>
+        <!-- Vibe (Фоторамка) -->
+        <div class="widget-screen vibe-screen" id="vibeWidget">
+            <div class="vibe-clock">
+                <span class="vibe-time" id="vibeTime">9:10</span>
+                <span class="vibe-time-ampm" id="vibeAmPm">PM</span>
+                <div class="vibe-date-temp">
+                    <span class="vibe-date" id="vibeDate">01.01</span>
+                    <span class="vibe-temp" id="vibeTemp">-1 C</span>
+                </div>
+            </div>
+            <div class="vibe-images-container" id="vibeImagesContainer">
+                <div class="vibe-image-wrapper" id="vibeImageWrapper">
+                    <img class="vibe-image" id="vibeImage" src="" alt="">
+                </div>
+            </div>
+            <div class="vibe-indicator" id="vibeIndicator">
+                <!-- Точки добавляются динамически -->
+            </div>
+            <div class="vibe-music-bar">
+                <div class="vibe-music-icon">*</div>
+                <div class="vibe-music-info">
+                    <div class="vibe-music-title" id="vibeMusicTitle">---</div>
+                    <div class="vibe-music-artist" id="vibeMusicArtist">---</div>
+                </div>
+                <div class="vibe-music-controls">
+                    <span class="vibe-control-btn">&lt;</span>
+                    <span class="vibe-control-btn">||</span>
+                    <span class="vibe-control-btn">&gt;</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="wrapper">
+        <div class="cell">
+            <div class="face-container" id="face">
+                <div class="eyes-row">
+                    <div class="eye left"></div>
+                    <div class="eye right"></div>
+                </div>
+                <div class="mouth" id="mouth"></div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="subtitles" id="subs"></div>
+
+    <script>
+        // --- КОНФИГУРАЦИЯ ---
+        var POLL_INTERVAL = 2000;
+        var SERVER_URL = '/api/poll';
+        
+        // --- ВИБРАЦИЯ (TACTILE LIFE) ---
+        // Проверка поддержки вибрации (Firefox 31+ поддерживает navigator.vibrate)
+        var vibrateSupported = false;
+        if (navigator.vibrate) {
+            vibrateSupported = true;
+        } else if (navigator.mozVibrate) {
+            // Для старых Firefox
+            navigator.vibrate = navigator.mozVibrate;
+            vibrateSupported = true;
+        }
+        
+        // Переменные для вибрации
+        var timerVibrateInterval = null; // Интервал вибрации таймера
+        
+        // Функция безопасной вибрации (с проверкой поддержки)
+        function safeVibrate(pattern) {
+            if (!vibrateSupported || !navigator.vibrate) return;
+            try {
+                navigator.vibrate(pattern);
+            } catch(e) {
+                // Игнорируем ошибки вибрации
+            }
+        }
+        
+        // Вибрация таймера "бррр --- бррр" (как будильник)
+        function startTimerVibration() {
+            if (timerVibrateInterval) return; // Уже запущено
+            
+            // Вибрация типа "бррр --- бррр" - повторяющийся паттерн
+            timerVibrateInterval = setInterval(function() {
+                // Проверяем, что таймер все еще закончился
+                if (timerTotal > 0 && timerLeft === 0) {
+                    safeVibrate([200, 100, 200, 100, 200]);
+                } else {
+                    // Если таймер выключен - останавливаем вибрацию
+                    stopTimerVibration();
+                }
+            }, 800); // Повторяем каждые 800мс
+        }
+        
+        function stopTimerVibration() {
+            if (timerVibrateInterval) {
+                clearInterval(timerVibrateInterval);
+                timerVibrateInterval = null;
+            }
+            // Останавливаем любую активную вибрацию
+            if (vibrateSupported && navigator.vibrate) {
+                try {
+                    navigator.vibrate(0);
+                } catch(e) {}
+            }
+        }
+        
+        // 3. "Раздражение/Головокружение" (Dizzy) - при тряске
+        function vibrateDizzy() {
+            safeVibrate([500, 100, 500]);
+        }
+        
+        // 4. "Внимание" (Wake Up) - при начале записи голоса
+        function vibrateWakeUp() {
+            safeVibrate([100]);
+        }
+        
+        // 5. "Энергия" (Charging) - при подключении/отключении зарядки
+        function vibrateCharging(isCharging) {
+            if (isCharging) {
+                // Подключение: двойной радостный импульс
+                safeVibrate([100, 50, 100]);
+            } else {
+                // Отключение: затухающий ритм
+                safeVibrate([200, 100, 50]);
+            }
+        }
+        
+        // --- ЭЛЕМЕНТЫ ---
+        var face = document.getElementById('face');
+        var mouth = document.getElementById('mouth');
+        var widgetsLayer = document.getElementById('widgets');
+        var subs = document.getElementById('subs');
+        
+        // Виджеты
+        var wWeather = document.getElementById('weatherWidget');
+        var wHome = document.getElementById('homeWidget');
+        var wText = document.getElementById('textWidget');
+        var wClock = document.getElementById('clockWidget');
+        var wTimer = document.getElementById('timerWidget');
+        var wMusic = document.getElementById('musicWidget');
+        var wBoot = document.getElementById('bootWidget');
+        var wVibe = document.getElementById('vibeWidget');
+        
+        // Данные
+        var elTemp = document.getElementById('tempDisplay');
+        var elCity = document.getElementById('cityDisplay');
+        var elWeatherIcon = document.getElementById('weatherIcon');
+        var elWeatherForecast = document.getElementById('weatherForecast');
+        var elDevName = document.getElementById('deviceName');
+        var elDevStatus = document.getElementById('deviceStatus');
+        var elHomeDevices = document.getElementById('homeDevices');
+        var elAiText = document.getElementById('aiOutput');
+        var elBigClock = document.getElementById('bigClock');
+        var elBigDate = document.getElementById('bigDate');
+        var elTimerProgress = document.getElementById('timerProgress');
+        var elTimerTime = document.getElementById('timerTime');
+        var elMusicTitle = document.getElementById('musicTitle');
+        var elMusicArtist = document.getElementById('musicArtist');
+        var elMusicProgressFill = document.getElementById('musicProgressFill');
+        var elBootBar = document.getElementById('bootBar');
+        var elBootCubes = elBootBar ? elBootBar.getElementsByClassName('boot-cube') : [];
+        
+        // Vibe элементы
+        var elVibeTime = document.getElementById('vibeTime');
+        var elVibeAmPm = document.getElementById('vibeAmPm');
+        var elVibeDate = document.getElementById('vibeDate');
+        var elVibeTemp = document.getElementById('vibeTemp');
+        var elVibeImage = document.getElementById('vibeImage');
+        var elVibeImageWrapper = document.getElementById('vibeImageWrapper');
+        var elVibeIndicator = document.getElementById('vibeIndicator');
+        var elVibeMusicTitle = document.getElementById('vibeMusicTitle');
+        var elVibeMusicArtist = document.getElementById('vibeMusicArtist');
+        var elVibeImagesContainer = document.getElementById('vibeImagesContainer');
+
+        // --- СОСТОЯНИЕ ---
+        var isOffline = false;
+        var isLocalAnim = false; // Флаг: если true, не слушаем сервер (идет анимация)
+        var isBlinkAnim = false; // Флаг: идет анимация подмигивания/зевка
+        var isChargingAnim = false; // Флаг: идет анимация зарядки
+        var isDischargingAnim = false; // Флаг: идет анимация разрядки
+        var dischargingDisabled = false; // Флаг сессии: отключена ли анимация разрядки пользователем
+        var currentMode = 'idle';
+        var lastMode = 'idle';
+        var modeBeforeAI = 'idle'; // Режим перед запросом к ИИ
+        var isBooting = true;
+        var fullscreenRequested = false; // Флаг: был ли запрос полноэкранного режима
+        var currentEmotion = 'normal'; // Кэшированное состояние эмоции (вместо чтения face.className)
+        var lastWeatherData = null; // Кэш последних данных о погоде
+        var deviceLocked = false; // Флаг блокировки устройства
+        var deviceName = 'UmaAI Device'; // Имя устройства
+        
+        // Запись голоса
+        var mediaRecorder = null;
+        var audioChunks = [];
+        var audioStream = null;
+
+        // Потоковый вывод текста
+        var textStreamTimer = null;
+        var textStreamWords = [];
+        var textStreamIndex = 0;
+        var lastAiText = '';
+        var backToNormalTimeout = null;
+
+        // Таймер
+        var timerInterval = null;
+        var timerTotal = 0;
+        var timerLeft = 0;
+        
+        // Vibe (фоторамка)
+        var vibeImages = [];
+        var vibeCurrentIndex = 0;
+        var vibeSwipeStartX = 0;
+        var vibeSwipeStartY = 0;
+        var vibeIsSwiping = false;
+        var vibeSwipeThreshold = 50;
+        var vibeInitialized = false; // Флаг инициализации
+        
+        // Счетчик морганий и рандомные пороги для подмигивания/зевка
+        // Логика: счетчик идет от 0 до 20, потом обнуляется
+        // При каждом цикле случайно выбираются моменты для анимаций
+        var blinkCounter = 0;
+        var MAX_BLINK_COUNT = 20; // Максимальное значение счетчика перед обнулением
+        var winkAt = getRandomInt(5, 10);  // случайное число от 5 до 10 для подмигивания
+        var yawnAt = getRandomInt(15, 20); // случайное число от 15 до 20 для зевка
+        
+        // Функция для выбора новых случайных чисел при обнулении счетчика
+        function resetBlinkCycle() {
+            blinkCounter = 0;
+            winkAt = getRandomInt(5, 10);
+            yawnAt = getRandomInt(15, 20);
+        }
+
+        // --- 1. ОПРОС СЕРВЕРА ---
+        function pollServer() {
+            if (isBooting) {
+                setTimeout(pollServer, POLL_INTERVAL);
+                return;
+            }
+            var xhr = new XMLHttpRequest();
+            xhr.open('GET', SERVER_URL + '?r=' + Math.random(), true);
+            xhr.timeout = 3000;
+
+            xhr.onreadystatechange = function() {
+                if (xhr.readyState === 4) {
+                    if (xhr.status === 200) {
+                        setOnline(true);
+                        try {
+                            var data = JSON.parse(xhr.responseText);
+                            // ПРИМЕНЯЕМ ДАННЫЕ СЕРВЕРА
+                            // applyServerState сам проверит isLocalAnim и обработает thinking/talking
+                            applyServerState(data);
+                        } catch(e) {}
+                    } else {
+                        setOnline(false);
+                    }
+                }
+            };
+            
+            xhr.onerror = function() { setOnline(false); };
+            xhr.ontimeout = function() { setOnline(false); };
+            
+            xhr.send();
+            setTimeout(pollServer, POLL_INTERVAL);
+        }
+
+        function sendStateUpdate(params) {
+            var queryParts = [];
+            if (params.mode) {
+                queryParts.push('mode=' + encodeURIComponent(params.mode));
+            }
+            if (params.emotion) {
+                queryParts.push('emotion=' + encodeURIComponent(params.emotion));
+            }
+            if (params.text) {
+                queryParts.push('text=' + encodeURIComponent(params.text));
+            }
+            if (!queryParts.length) return;
+
+            var xhr = new XMLHttpRequest();
+            xhr.open('GET', '/api/set?' + queryParts.join('&'), true);
+            xhr.send();
+        }
+
+        // --- 2. ПРИМЕНЕНИЕ ДАННЫХ С СЕРВЕРА ---
+        function applyServerState(data) {
+            // Обновляем состояние блокировки
+            if (data.deviceLocked !== undefined) {
+                deviceLocked = data.deviceLocked;
+                updateLockIndicator();
+            }
+            
+            // ВСЕГДА обновляем данные о погоде, если они есть
+            if (data.weather) {
+                lastWeatherData = data.weather;
+                // Обновляем погоду в экране погоды, если он активен (используем setElementText для совместимости)
+                if (currentMode === 'weather' && wWeather && wWeather.classList.contains('active')) {
+                    var tempText = (data.weather.temp ? data.weather.temp : '--') + '°';
+                    setElementText(elTemp, tempText);
+                    setElementText(elCity, data.weather.city || '');
+                    updateWeatherIcon(data.weather.condition || '');
+                    // Обновляем прогноз, если он есть
+                    if (data.weather.forecast && Array.isArray(data.weather.forecast)) {
+                        renderWeatherForecast(data.weather.forecast);
+                    }
+                }
+                // Обновляем температуру в vibe режиме
+                if (currentMode === 'vibe' && elVibeTemp) {
+                    var tempText = (data.weather.temp ? data.weather.temp : '--') + ' C';
+                    setElementText(elVibeTemp, tempText);
+                }
+            }
+            
+            // Не применяем состояние сервера во время анимации зарядки/разрядки
+            if (isChargingAnim || isDischargingAnim) {
+                // Обновляем только данные виджетов, но не трогаем лицо
+                updateWidgetDataOnly(data);
+                return;
+            }
+            
+            var emotion = data.emotion || 'normal';
+            var mode = data.mode || 'idle';
+            
+            // Если идет локальная анимация (listening), не применяем normal от сервера
+            // Ждем, пока сервер вернет thinking или talking
+            if (isLocalAnim) {
+                // Если сервер вернул thinking или talking - снимаем локальный флаг и применяем состояние
+                if (emotion === 'thinking' || emotion === 'talking') {
+                    isLocalAnim = false;
+                    // При thinking всегда показываем idle-экран, игнорируем режим
+                    if (emotion === 'thinking') {
+                        setFaceByModeAndEmotion('idle', emotion);
+                        setWidgetsByMode('idle', data);
+                    } else {
+                        // При talking применяем режим от сервера
+                        currentMode = mode;
+                        setFaceByModeAndEmotion(mode, emotion);
+                        setWidgetsByMode(mode, data);
+                        lastMode = mode;
+                    }
+                    return;
+                } else {
+                    // Сервер еще не установил thinking, игнорируем его состояние
+                    return;
+                }
+            }
+            
+            // Защита: не применяем normal, если текущая эмоция listening или thinking
+            // (чтобы не перезаписать локальное состояние)
+            if (emotion === 'normal' && (currentEmotion === 'listening' || currentEmotion === 'thinking')) {
+                return;
+            }
+            
+            // При thinking всегда показываем idle-экран, игнорируем режим от сервера
+            if (emotion === 'thinking') {
+                setFaceByModeAndEmotion('idle', emotion);
+                setWidgetsByMode('idle', data);
+                return;
+            }
+            
+            currentMode = mode;
+            setFaceByModeAndEmotion(mode, emotion);
+            setWidgetsByMode(mode, data);
+            lastMode = mode;
+        }
+        
+        function updateWidgetDataOnly(data) {
+            // Обновляем данные, если соответствующие режимы уже активны
+            if (data.weather) {
+                lastWeatherData = data.weather;
+                // Обновляем погоду в экране погоды (используем setElementText для совместимости)
+                if (currentMode === 'weather' && wWeather && wWeather.classList.contains('active')) {
+                    var tempText = (data.weather.temp ? data.weather.temp : '--') + '°';
+                    setElementText(elTemp, tempText);
+                    setElementText(elCity, data.weather.city || '');
+                    updateWeatherIcon(data.weather.condition || '');
+                    // Обновляем прогноз, если он есть
+                    if (data.weather.forecast && Array.isArray(data.weather.forecast)) {
+                        renderWeatherForecast(data.weather.forecast);
+                    }
+                }
+                // Обновляем температуру в vibe режиме
+                if (currentMode === 'vibe' && elVibeTemp) {
+                    var tempText = (data.weather.temp ? data.weather.temp : '--') + ' C';
+                    setElementText(elVibeTemp, tempText);
+                }
+            }
+            if (data.timer) {
+                startTimerVisualization(data.timer.total || 0, data.timer.left || 0);
+            }
+            if (data.music) {
+                updateMusicData(data.music);
+            }
+        }
+        
+        function updateWeatherIcon(condition) {
+            if (!elWeatherIcon) return;
+            var icon = '*';
+            condition = (condition || '').toLowerCase();
+            if (condition.indexOf('snow') !== -1) {
+                icon = '*';
+            } else if (condition.indexOf('rain') !== -1) {
+                icon = '|';
+            } else if (condition.indexOf('cloud') !== -1) {
+                icon = '-';
+            } else if (condition.indexOf('sun') !== -1 || condition.indexOf('clear') !== -1) {
+                icon = 'o';
+            } else {
+                icon = '*';
+            }
+            setElementText(elWeatherIcon, icon);
+        }
+
+        function hideAllWidgets() {
+            widgetsLayer.classList.remove('active');
+            var all = [wWeather, wHome, wText, wClock, wTimer, wMusic, wBoot, wVibe];
+            for (var i = 0; i < all.length; i++) {
+                if (all[i]) all[i].classList.remove('active');
+            }
+        }
+
+        function setFaceByModeAndEmotion(mode, emotion) {
+            // Не меняем лицо во время анимации подмигивания/зевка
+            if (isBlinkAnim) {
+                return;
+            }
+            
+            // Не меняем лицо во время анимации зарядки или разрядки
+            if (isChargingAnim || isDischargingAnim) {
+                return;
+            }
+            
+            // Обновляем кэшированное состояние эмоции
+            currentEmotion = emotion || 'normal';
+            
+            var baseClass = 'face-container';
+            // ИСКЛЮЧЕНИЕ: если лицо думает (thinking), всегда показываем idle-экран (большое лицо по центру)
+            // Игнорируем все режимы (music, timer, clock и т.д.)
+            if (emotion === 'thinking') {
+                // При thinking всегда показываем большое лицо по центру, без всех режимов
+                baseClass += ' ' + emotion;
+                face.className = baseClass;
+                return; // Выходим раньше, не применяя режимы
+            }
+            
+            // В полноэкранном режиме оставляем лицо большим,
+            // а погоду/дом/текст/часы выносим в отдельные экраны (mini-mode).
+            // ИСКЛЮЧЕНИЕ: если лицо слушает (listening), не уменьшаем его, даже если режим не idle
+            var isActiveEmotion = (emotion === 'listening');
+            if (mode !== 'idle' && mode !== 'timer' && mode !== 'music' && !isActiveEmotion) {
+                baseClass += ' mini-mode';
+            }
+            // В режиме таймера — маленькое лицо сверху по центру
+            if (mode === 'timer') {
+                baseClass += ' timer-mode';
+            }
+            // В режиме vibe — лицо в mini-mode слева внизу (уже добавлено выше)
+            if (mode === 'vibe') {
+                baseClass += ' vibe-mode';
+            }
+            // В режиме weather — лицо в mini-mode слева внизу (уже добавлено выше)
+            if (mode === 'weather') {
+                baseClass += ' weather-mode';
+            }
+            // Для ночных часов всегда "спим" — глаза закрыты
+            // ИСКЛЮЧЕНИЕ: если лицо слушает, не закрываем глаза
+            if (mode === 'clock' && !isActiveEmotion) {
+                baseClass += ' sleep';
+            } else if (mode === 'music') {
+                // Музыка: лицо танцует, любые другие эмоции блокируем
+                baseClass += ' dance';
+            } else if (emotion && emotion !== 'normal') {
+                baseClass += ' ' + emotion;
+            }
+            face.className = baseClass;
+        }
+
+        function setWidgetsByMode(mode, data) {
+            // ИСКЛЮЧЕНИЕ: если лицо слушает/думает (listening/thinking), скрываем все виджеты, даже если режим не idle
+            var emotion = (data && data.emotion) ? data.emotion : 'normal';
+            if (emotion === 'listening') {
+                hideAllWidgets();
+                subs.innerText = "Слушаю...";
+                return;
+            } else if (emotion === 'thinking') {
+                hideAllWidgets();
+                subs.innerText = "Думаю...";
+                return;
+            }
+            
+            var incomingText = (data && data.aiText) ? data.aiText : '';
+            // Очищаем текст от команд перед использованием (дополнительная защита)
+            incomingText = cleanCommandsFromText(incomingText);
+            // Если остаёмся в режиме text и текст не менялся — не сбрасываем поток
+            var keepTextStream = (mode === 'text' && lastMode === 'text' && incomingText === lastAiText);
+
+            if (!keepTextStream) {
+                clearTextStream();
+                clearTalkingTimers();
+            }
+            clearTimerVisualization();
+
+            hideAllWidgets();
+
+            if (mode === 'idle') {
+                subs.innerText = "";
+                return;
+            }
+
+            widgetsLayer.classList.add('active');
+
+            if (mode === 'weather') {
+                wWeather.classList.add('active');
+                var tempText = (data.weather && data.weather.temp ? data.weather.temp : '--') + '°';
+                setElementText(elTemp, tempText);
+                setElementText(elCity, (data.weather && data.weather.city) || '');
+                updateWeatherIcon(data.weather && data.weather.condition ? data.weather.condition : '');
+                renderWeatherForecast((data.weather && data.weather.forecast) || []);
+                // Сохраняем данные о погоде в кэш
+                if (data.weather) {
+                    lastWeatherData = data.weather;
+                }
+            } else if (mode === 'smarthome') {
+                wHome.classList.add('active');
+                renderSmartHome(data.smartHome);
+            } else if (mode === 'text') {
+                wText.classList.add('active');
+                if (!keepTextStream) {
+                    startTextStream(incomingText);
+                }
+                subs.innerText = "Ответ ИИ";
+            } else if (mode === 'clock') {
+                wClock.classList.add('active');
+                subs.innerText = "";
+            } else if (mode === 'timer') {
+                wTimer.classList.add('active');
+                var t = data.timer || {};
+                startTimerVisualization(t.total || 0, t.left || 0);
+            } else if (mode === 'music') {
+                wMusic.classList.add('active');
+                updateMusicData(data.music || {});
+            } else if (mode === 'boot') {
+                wBoot.classList.add('active');
+                startBootAnimation();
+            } else if (mode === 'vibe') {
+                wVibe.classList.add('active');
+                if (!vibeInitialized) {
+                    initVibeMode();
+                }
+                // Обновляем музыку в vibe режиме
+                if (data.music) {
+                    updateVibeMusic(data.music);
+                }
+                // Обновляем температуру в vibe режиме
+                if (data.weather && elVibeTemp) {
+                    var tempText = (data.weather.temp ? data.weather.temp : '--') + ' C';
+                    setElementText(elVibeTemp, tempText);
+                    lastWeatherData = data.weather;
+                }
+                subs.innerText = "";
+            }
+        }
+
+        function renderWeatherForecast(list) {
+            if (!elWeatherForecast) return;
+            // Используем удаление дочерних элементов вместо innerHTML
+            while (elWeatherForecast.firstChild) {
+                elWeatherForecast.removeChild(elWeatherForecast.firstChild);
+            }
+            if (!list || !list.length) return;
+            // Показываем до 6 часов прогноза
+            var maxItems = Math.min(6, list.length);
+            for (var i = 0; i < maxItems; i++) {
+                var item = list[i];
+                var div = document.createElement('div');
+                div.className = 'forecast-item';
+                var time = document.createElement('div');
+                time.className = 'forecast-time';
+                setElementText(time, item.time || '--:--');
+                var temp = document.createElement('div');
+                temp.className = 'forecast-temp';
+                var tempText = (item.temp != null ? item.temp : '--') + '°';
+                setElementText(temp, tempText);
+                div.appendChild(time);
+                div.appendChild(temp);
+                elWeatherForecast.appendChild(div);
+            }
+        }
+
+        function renderSmartHome(smartHome) {
+            if (!elHomeDevices) return;
+            // Используем удаление дочерних элементов вместо innerHTML
+            while (elHomeDevices.firstChild) {
+                elHomeDevices.removeChild(elHomeDevices.firstChild);
+            }
+            if (!smartHome) return;
+
+            var devices = smartHome.devices || [smartHome];
+            // Показываем только первое устройство на полный экран
+            var d = devices[0];
+            if (!d) return;
+            
+            var card = document.createElement('div');
+            card.className = 'device-card';
+            
+            var isOn = (d.status === 'on' || d.status === '1' || d.status === true);
+            if (isOn) {
+                card.className = 'device-card on';
+            }
+
+                var icon = document.createElement('span');
+                icon.className = 'device-icon';
+                if (icon.textContent !== undefined) {
+                    icon.textContent = d.icon || 'o';
+                } else {
+                    icon.innerText = d.icon || 'o';
+                }
+
+            var name = document.createElement('span');
+            name.className = 'device-name';
+            var nameText = d.device || d.name || 'Устройство';
+            if (name.textContent !== undefined) {
+                name.textContent = nameText;
+            } else {
+                name.innerText = nameText;
+            }
+            // Явная установка стилей для старых браузеров
+            name.style.color = '#ffffff';
+            name.style.visibility = 'visible';
+            name.style.display = 'block';
+
+            var status = document.createElement('div');
+            status.className = 'device-status';
+            var statusText = isOn ? 'ВКЛЮЧЕНО' : 'ВЫКЛЮЧЕНО';
+            if (status.textContent !== undefined) {
+                status.textContent = statusText;
+            } else {
+                status.innerText = statusText;
+            }
+            // Явная установка стилей для старых браузеров
+            status.style.color = isOn ? '#ffdd44' : '#cccccc';
+            status.style.visibility = 'visible';
+            status.style.display = 'block';
+
+            card.appendChild(icon);
+            card.appendChild(name);
+            card.appendChild(status);
+            
+            // Добавляем обработчик клика для переключения
+            card.onclick = function(e) {
+                // Предотвращаем всплытие события, чтобы не сработал обработчик body
+                e = e || window.event;
+                if (e.stopPropagation) {
+                    e.stopPropagation();
+                } else {
+                    e.cancelBubble = true; // IE старый
+                }
+                
+                var newState = isOn ? 'off' : 'on';
+                var xhr = new XMLHttpRequest();
+                xhr.open('GET', '/api/set?mode=smarthome&deviceState=' + newState, true);
+                xhr.send();
+                
+                // Сразу обновляем визуально для отклика
+                if (newState === 'on') {
+                    card.className = 'device-card on';
+                    var statusTextOn = 'ВКЛЮЧЕНО';
+                    if (status.textContent !== undefined) {
+                        status.textContent = statusTextOn;
+                    } else {
+                        status.innerText = statusTextOn;
+                    }
+                    status.style.color = '#ffdd44';
+                } else {
+                    card.className = 'device-card';
+                    var statusTextOff = 'ВЫКЛЮЧЕНО';
+                    if (status.textContent !== undefined) {
+                        status.textContent = statusTextOff;
+                    } else {
+                        status.innerText = statusTextOff;
+                    }
+                    status.style.color = '#cccccc';
+                }
+                isOn = (newState === 'on');
+                
+                return false; // Дополнительная блокировка всплытия
+            };
+            
+            elHomeDevices.appendChild(card);
+        }
+
+        // Функция для удаления всех команд из текста (дополнительная защита на клиенте)
+        function cleanCommandsFromText(text) {
+            if (!text || typeof text !== 'string') return '';
+            // Удаляем все команды вида {COMMAND} или {COMMAND: параметры}
+            return text
+                .replace(/\{\s*[A-Za-z_]+\s*(?::\s*[^}]+)?\s*\}/g, '') // Удаляем все команды
+                .replace(/\s+/g, ' ')  // Множественные пробелы -> один
+                .trim();
+        }
+
+        function startTextStream(fullText) {
+            clearTextStream();
+            clearTalkingTimers();
+            if (!fullText || typeof fullText !== 'string') {
+                setElementText(elAiText, '');
+                return;
+            }
+            // Очищаем текст от команд перед отображением (дополнительная защита)
+            var cleanedText = cleanCommandsFromText(fullText);
+            textStreamWords = cleanedText.split(/\s+/);
+            textStreamIndex = 0;
+            setElementText(elAiText, '');
+            lastAiText = cleanedText;
+            lastMode = 'text';
+            currentMode = 'text';
+            // Переход в режим "говорю" пока выводится текст
+            setFaceByModeAndEmotion('text', 'talking');
+            textStreamTimer = setInterval(function() {
+                if (textStreamIndex >= textStreamWords.length) {
+                    handleTextStreamFinished();
+                    return;
+                }
+                var currentText = getElementText(elAiText);
+                var newWord = textStreamWords[textStreamIndex];
+                setElementText(elAiText, currentText + (currentText ? ' ' : '') + newWord);
+                textStreamIndex++;
+            }, 250);
+        }
+        
+        // Универсальная функция для установки текста (совместимость со старыми браузерами)
+        function setElementText(element, text) {
+            if (!element) return;
+            // Для старых Firefox используем innerHTML с экранированием
+            try {
+                if (typeof element.textContent !== 'undefined') {
+                    element.textContent = text;
+                } else if (typeof element.innerText !== 'undefined') {
+                    element.innerText = text;
+                } else {
+                    // Fallback для очень старых браузеров
+                    element.innerHTML = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                }
+            } catch(e) {
+                // Если все методы не работают, используем innerHTML
+                element.innerHTML = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            }
+        }
+        
+        // Универсальная функция для получения текста
+        function getElementText(element) {
+            if (!element) return '';
+            try {
+                if (typeof element.textContent !== 'undefined') {
+                    return element.textContent;
+                } else if (typeof element.innerText !== 'undefined') {
+                    return element.innerText;
+                } else {
+                    return element.innerHTML.replace(/<[^>]*>/g, '');
+                }
+            } catch(e) {
+                return element.innerHTML.replace(/<[^>]*>/g, '');
+            }
+        }
+
+        function clearTextStream() {
+            if (textStreamTimer) {
+                clearInterval(textStreamTimer);
+                textStreamTimer = null;
+            }
+            textStreamWords = [];
+            textStreamIndex = 0;
+        }
+
+        function clearTalkingTimers() {
+            if (backToNormalTimeout) {
+                clearTimeout(backToNormalTimeout);
+                backToNormalTimeout = null;
+            }
+        }
+
+        function handleTextStreamFinished() {
+            clearTextStream();
+            clearTalkingTimers();
+            // Сразу убираем анимацию разговора, но оставляем экран текста
+            setFaceByModeAndEmotion('text', 'normal');
+            sendStateUpdate({ mode: 'text', emotion: 'normal' });
+
+            // Через 5 секунд возвращаемся к предыдущему режиму
+            backToNormalTimeout = setTimeout(function() {
+                if (currentMode === 'text') {
+                    setElementText(elAiText, '');
+                    lastAiText = '';
+                    // Если был в режиме часов, возвращаемся к ним
+                    var returnMode = (modeBeforeAI === 'clock') ? 'clock' : 'idle';
+                    sendStateUpdate({ mode: returnMode, emotion: 'normal', text: '' });
+                }
+            }, 5000);
+        }
+
+        function startTimerVisualization(totalSeconds, leftSeconds) {
+            clearTimerVisualization();
+            if (!totalSeconds || totalSeconds <= 0) {
+                setElementText(elTimerTime, '00:00');
+                if (elTimerProgress) {
+                    elTimerProgress.style.transform = 'rotate(0deg)';
+                    elTimerProgress.style.webkitTransform = 'rotate(0deg)';
+                    elTimerProgress.style.mozTransform = 'rotate(0deg)';
+                }
+                return;
+            }
+            timerTotal = totalSeconds;
+            
+            // Корректно учитываем leftSeconds, даже если это 0 (чтобы не было цикла 01:00↔00:59)
+            if (typeof leftSeconds === 'number') {
+                timerLeft = leftSeconds;
+            } else {
+                timerLeft = totalSeconds;
+            }
+
+            // Если сервер говорит, что осталось 0 — просто показываем 00:00 без нового интервала
+            if (timerLeft <= 0) {
+                timerLeft = 0;
+                updateTimerUI();
+                return;
+            }
+
+            updateTimerUI();
+            timerInterval = setInterval(function() {
+                timerLeft--;
+                if (timerLeft <= 0) {
+                    timerLeft = 0;
+                    updateTimerUI();
+                    clearTimerVisualization();
+                    return;
+                }
+                updateTimerUI();
+            }, 1000);
+        }
+
+        function clearTimerVisualization() {
+            if (timerInterval) {
+                clearInterval(timerInterval);
+                timerInterval = null;
+            }
+            // Останавливаем вибрацию таймера при выключении
+            stopTimerVibration();
+            timerTotal = 0;
+            timerLeft = 0;
+        }
+
+        function updateTimerUI() {
+            if (!elTimerTime) return;
+            
+            var m = Math.floor(timerLeft / 60);
+            var s = timerLeft % 60;
+            var mm = (m < 10 ? '0' + m : '' + m);
+            var ss = (s < 10 ? '0' + s : '' + s);
+            var timeText = mm + ':' + ss;
+            
+            // Используем универсальную функцию для установки текста
+            setElementText(elTimerTime, timeText);
+            
+            // Цвет: последние 10 секунд — красным
+            if (timerTotal > 0 && timerLeft > 0 && timerLeft <= 10) {
+                elTimerTime.style.color = '#ff3333';
+            } else {
+                elTimerTime.style.color = '#ffffff';
+            }
+            
+            // Когда время вышло — мигаем 00:00 и чуть "пугаем" лицо
+            if (timerTotal > 0 && timerLeft === 0) {
+                // Запускаем вибрацию таймера "бррр --- бррр"
+                startTimerVibration();
+                
+                // Лицо немного дёргается вверх-вниз, но остаётся по центру
+                if (face) {
+                    face.classList.add('timer-alert');
+                    setTimeout(function () {
+                        face.classList.remove('timer-alert');
+                    }, 2000);
+                }
+                setElementText(elTimerTime, '00:00');
+                // Включаем класс, который мигает текст времени
+                if (wTimer) wTimer.classList.add('timer-finished');
+            } else {
+                if (wTimer) {
+                    wTimer.classList.remove('timer-finished');
+                }
+            }
+        }
+
+        function updateMusicData(music) {
+            if (!elMusicTitle || !elMusicArtist || !elMusicProgressFill) return;
+            
+            setElementText(elMusicTitle, music.title || '');
+            setElementText(elMusicArtist, music.artist || '');
+            // Заглушка прогресса — фиксированная ширина, потом можно привязать к времени
+            elMusicProgressFill.style.width = (music.progressPercent != null ? music.progressPercent : 30) + '%';
+        }
+
+        // --- VIBE (ФОТОРАМКА) ---
+        function initVibeMode() {
+            // Загружаем список изображений с сервера только при первой инициализации
+            if (vibeImages.length === 0) {
+                loadVibeImages();
+            } else {
+                // Если изображения уже загружены, просто показываем текущее
+                if (vibeCurrentIndex >= 0 && vibeCurrentIndex < vibeImages.length) {
+                    showVibeImage(vibeCurrentIndex);
+                }
+            }
+            // Запускаем обновление часов для vibe
+            updateVibeClock();
+            // Инициализируем свайп-обработчики только один раз
+            if (!vibeInitialized) {
+                initVibeSwipe();
+            }
+            vibeInitialized = true;
+        }
+        
+        function loadVibeImages() {
+            var xhr = new XMLHttpRequest();
+            xhr.open('GET', '/api/vibe/list?r=' + Math.random(), true);
+            xhr.onreadystatechange = function() {
+                if (xhr.readyState === 4 && xhr.status === 200) {
+                    try {
+                        var data = JSON.parse(xhr.responseText);
+                        var wasEmpty = (vibeImages.length === 0);
+                        vibeImages = data.images || [];
+                        if (vibeImages.length > 0) {
+                            // Сбрасываем индекс только если это первая загрузка
+                            if (wasEmpty) {
+                                vibeCurrentIndex = 0;
+                            }
+                            // Проверяем, что индекс в допустимых пределах
+                            if (vibeCurrentIndex >= vibeImages.length) {
+                                vibeCurrentIndex = vibeImages.length - 1;
+                            }
+                            showVibeImage(vibeCurrentIndex);
+                            updateVibeIndicator();
+                        } else {
+                            // Нет изображений - показываем заглушку
+                            if (elVibeImage) {
+                                elVibeImage.style.display = 'none';
+                            }
+                        }
+                    } catch(e) {
+                        console.log('Vibe: ошибка загрузки списка изображений');
+                    }
+                }
+            };
+            xhr.send();
+        }
+        
+        function showVibeImage(index) {
+            if (!vibeImages || vibeImages.length === 0) return;
+            if (index < 0) index = 0;
+            if (index >= vibeImages.length) index = vibeImages.length - 1;
+            
+            vibeCurrentIndex = index;
+            var img = vibeImages[index];
+            
+            // Выгружаем предыдущее изображение из памяти для экономии ресурсов
+            if (elVibeImage && elVibeImage.src) {
+                // Скрываем изображение
+                elVibeImage.style.display = 'none';
+                // Очищаем src чтобы выгрузить из памяти (особенно важно для GIF)
+                elVibeImage.src = '';
+                // Принудительно очищаем кэш браузера
+                if (elVibeImage.removeAttribute) {
+                    elVibeImage.removeAttribute('src');
+                }
+                
+                // Небольшая задержка перед загрузкой нового изображения
+                // чтобы браузер успел выгрузить старое из памяти
+                setTimeout(function() {
+                    if (elVibeImage && img) {
+                        // Загружаем только текущее изображение
+                        elVibeImage.src = img.url;
+                        elVibeImage.style.display = 'block';
+                    }
+                }, 50);
+            } else {
+                // Если нет предыдущего изображения, загружаем сразу
+                if (elVibeImage && img) {
+                    elVibeImage.src = img.url;
+                    elVibeImage.style.display = 'block';
+                }
+            }
+            
+            updateVibeIndicator();
+        }
+        
+        function updateVibeIndicator() {
+            if (!elVibeIndicator) return;
+            
+            // Очищаем индикатор
+            while (elVibeIndicator.firstChild) {
+                elVibeIndicator.removeChild(elVibeIndicator.firstChild);
+            }
+            
+            // Создаем точки
+            for (var i = 0; i < vibeImages.length; i++) {
+                var dot = document.createElement('span');
+                dot.className = 'vibe-dot';
+                if (i === vibeCurrentIndex) {
+                    dot.className = 'vibe-dot active';
+                }
+                elVibeIndicator.appendChild(dot);
+            }
+        }
+        
+        function updateVibeClock() {
+            if (!elVibeTime || !elVibeAmPm) return;
+            
+            var now = new Date();
+            var h = now.getHours();
+            var m = now.getMinutes();
+            
+            // 24-часовой формат
+            var timeStr = (h < 10 ? '0' + h : h) + ':' + (m < 10 ? '0' + m : m);
+            
+            setElementText(elVibeTime, timeStr);
+            setElementText(elVibeAmPm, ''); // Скрываем AM/PM в 24-часовом формате
+            
+            // Дата
+            if (elVibeDate) {
+                var d = now.getDate();
+                var mo = now.getMonth() + 1;
+                var dateStr = (d < 10 ? '0' + d : d) + '.' + (mo < 10 ? '0' + mo : mo);
+                setElementText(elVibeDate, dateStr);
+            }
+            
+            // Температура из кэша последних данных с сервера
+            if (elVibeTemp) {
+                if (lastWeatherData && lastWeatherData.temp) {
+                    var tempText = lastWeatherData.temp + ' C';
+                    setElementText(elVibeTemp, tempText);
+                } else {
+                    // Если данных еще нет, показываем заглушку
+                    setElementText(elVibeTemp, '-- C');
+                }
+            }
+        }
+        
+        // Обновляем часы каждую секунду, если в режиме vibe
+        setInterval(function() {
+            if (currentMode === 'vibe') {
+                updateVibeClock();
+            }
+        }, 1000);
+        
+        function initVibeSwipe() {
+            if (!elVibeImagesContainer) return;
+            
+            // Touch события для свайпа
+            elVibeImagesContainer.addEventListener('touchstart', function(e) {
+                if (currentMode !== 'vibe') return;
+                var touch = e.touches[0];
+                vibeSwipeStartX = touch.clientX;
+                vibeSwipeStartY = touch.clientY;
+                vibeIsSwiping = true;
+            }, false);
+            
+            elVibeImagesContainer.addEventListener('touchmove', function(e) {
+                if (!vibeIsSwiping || currentMode !== 'vibe') return;
+                
+                var touch = e.touches[0];
+                var deltaX = touch.clientX - vibeSwipeStartX;
+                var deltaY = touch.clientY - vibeSwipeStartY;
+                
+                // Если горизонтальный свайп больше вертикального - это свайп по фото
+                if (Math.abs(deltaX) > Math.abs(deltaY)) {
+                    e.preventDefault();
+                    // Показываем смещение в реальном времени
+                    if (elVibeImageWrapper) {
+                        elVibeImageWrapper.style.webkitTransform = 'translateX(' + deltaX + 'px) translateZ(0)';
+                        elVibeImageWrapper.style.transform = 'translateX(' + deltaX + 'px) translateZ(0)';
+                    }
+                }
+            }, false);
+            
+            elVibeImagesContainer.addEventListener('touchend', function(e) {
+                if (!vibeIsSwiping || currentMode !== 'vibe') return;
+                vibeIsSwiping = false;
+                
+                var touch = e.changedTouches[0];
+                var deltaX = touch.clientX - vibeSwipeStartX;
+                
+                // Возвращаем позицию
+                if (elVibeImageWrapper) {
+                    elVibeImageWrapper.style.webkitTransform = 'translateX(0) translateZ(0)';
+                    elVibeImageWrapper.style.transform = 'translateX(0) translateZ(0)';
+                }
+                
+                // Проверяем порог свайпа
+                if (Math.abs(deltaX) > vibeSwipeThreshold) {
+                    if (deltaX < 0) {
+                        // Свайп влево - следующее изображение
+                        vibeNextImage();
+                    } else {
+                        // Свайп вправо - предыдущее изображение
+                        vibePrevImage();
+                    }
+                }
+            }, false);
+            
+            // Для мыши (тестирование на ПК)
+            var mouseStartX = 0;
+            var mouseIsDown = false;
+            
+            elVibeImagesContainer.addEventListener('mousedown', function(e) {
+                if (currentMode !== 'vibe') return;
+                mouseStartX = e.clientX;
+                mouseIsDown = true;
+            }, false);
+            
+            elVibeImagesContainer.addEventListener('mousemove', function(e) {
+                if (!mouseIsDown || currentMode !== 'vibe') return;
+                var deltaX = e.clientX - mouseStartX;
+                if (elVibeImageWrapper) {
+                    elVibeImageWrapper.style.webkitTransform = 'translateX(' + deltaX + 'px) translateZ(0)';
+                    elVibeImageWrapper.style.transform = 'translateX(' + deltaX + 'px) translateZ(0)';
+                }
+            }, false);
+            
+            elVibeImagesContainer.addEventListener('mouseup', function(e) {
+                if (!mouseIsDown || currentMode !== 'vibe') return;
+                mouseIsDown = false;
+                
+                var deltaX = e.clientX - mouseStartX;
+                
+                if (elVibeImageWrapper) {
+                    elVibeImageWrapper.style.webkitTransform = 'translateX(0) translateZ(0)';
+                    elVibeImageWrapper.style.transform = 'translateX(0) translateZ(0)';
+                }
+                
+                if (Math.abs(deltaX) > vibeSwipeThreshold) {
+                    if (deltaX < 0) {
+                        vibeNextImage();
+                    } else {
+                        vibePrevImage();
+                    }
+                }
+            }, false);
+            
+            elVibeImagesContainer.addEventListener('mouseleave', function(e) {
+                if (mouseIsDown) {
+                    mouseIsDown = false;
+                    if (elVibeImageWrapper) {
+                        elVibeImageWrapper.style.webkitTransform = 'translateX(0) translateZ(0)';
+                        elVibeImageWrapper.style.transform = 'translateX(0) translateZ(0)';
+                    }
+                }
+            }, false);
+        }
+        
+        function vibeNextImage() {
+            if (vibeCurrentIndex < vibeImages.length - 1) {
+                showVibeImage(vibeCurrentIndex + 1);
+            }
+        }
+        
+        function vibePrevImage() {
+            if (vibeCurrentIndex > 0) {
+                showVibeImage(vibeCurrentIndex - 1);
+            }
+        }
+        
+        // Обновление музыки в vibe режиме
+        function updateVibeMusic(music) {
+            if (!elVibeMusicTitle || !elVibeMusicArtist) return;
+            setElementText(elVibeMusicTitle, music.title || '---');
+            setElementText(elVibeMusicArtist, music.artist || '---');
+        }
+
+        function startBootAnimation() {
+            isBooting = true;
+            hideAllWidgets();
+            widgetsLayer.classList.add('active');
+            wBoot.classList.add('active');
+            // Прячем лицо на время загрузки
+            if (face) {
+                face.style.display = 'none';
+            }
+
+            // Сбрасываем кубики
+            for (var i = 0; i < elBootCubes.length; i++) {
+                elBootCubes[i].classList.remove('filled');
+            }
+
+            var step = 0;
+            function fillNextCube() {
+                if (step < elBootCubes.length) {
+                    elBootCubes[step].classList.add('filled');
+                    step++;
+                    // Пока идёт загрузка — подготавливаем UI в фоне
+                    prewarmUI();
+                    setTimeout(fillNextCube, 400);
+                } else {
+                    // Все 5 кубиков заполнены — выходим из boot
+                    setTimeout(function() {
+                        wBoot.classList.remove('active');
+                        widgetsLayer.classList.remove('active');
+                        isBooting = false;
+                        currentMode = 'idle';
+                        setFaceByModeAndEmotion('idle', 'normal');
+                        // Показываем лицо после полной загрузки
+                        if (face) {
+                            face.style.display = 'block';
+                        }
+                    }, 300);
+                }
+            }
+
+            setTimeout(fillNextCube, 400);
+        }
+
+        // Прогрев интерфейса, чтобы анимации/верстка не лагали при первом показе
+        function prewarmUI() {
+            // Убрано чтение offsetWidth/offsetHeight - это вызывает reflow
+            // GPU-ускорение через translateZ(0) и will-change уже настроено в CSS
+            // Браузер сам оптимизирует отрисовку при первом показе
+        }
+
+        // --- АВТОМАТИЧЕСКИЙ ПЕРЕХОД В ПОЛНОЭКРАННЫЙ РЕЖИМ ---
+        function requestFullscreen() {
+            var element = document.documentElement;
+            
+            // Пробуем разные методы для разных браузеров
+            if (element.requestFullscreen) {
+                element.requestFullscreen().catch(function(err) {
+                    console.log('Ошибка полноэкранного режима:', err);
+                });
+            } else if (element.webkitRequestFullscreen) {
+                // Старые WebKit браузеры
+                element.webkitRequestFullscreen();
+            } else if (element.mozRequestFullScreen) {
+                // Firefox (включая старые версии)
+                element.mozRequestFullScreen();
+            } else if (element.msRequestFullscreen) {
+                // IE/Edge
+                element.msRequestFullscreen();
+            } else if (element.webkitEnterFullscreen) {
+                // Еще один вариант для старых WebKit
+                element.webkitEnterFullscreen();
+            }
+        }
+        
+        // Функция для проверки, находимся ли мы в полноэкранном режиме
+        function isFullscreen() {
+            return document.fullscreenElement || 
+                   document.webkitFullscreenElement || 
+                   document.mozFullScreenElement || 
+                   document.msFullscreenElement;
+        }
+        
+        // Обработчики событий выхода из полноэкранного режима
+        function setupFullscreenListeners() {
+            var fullscreenEvents = [
+                'fullscreenchange',
+                'webkitfullscreenchange',
+                'mozfullscreenchange',
+                'MSFullscreenChange'
+            ];
+            
+            for (var i = 0; i < fullscreenEvents.length; i++) {
+                document.addEventListener(fullscreenEvents[i], function() {
+                    // Если вышли из полноэкранного режима, можно попробовать снова
+                    // (но не делаем автоматически, чтобы не раздражать пользователя)
+                });
+            }
+        }
+        
+        // Стартовая boot-анимация
+        window.addEventListener('load', function() {
+            // Настраиваем обработчики полноэкранного режима
+            setupFullscreenListeners();
+            
+            startBootAnimation();
+            // pollServer запускается сразу, но запросы игнорируются,
+            // пока isBooting === true
+            pollServer();
+        });
+        
+        // Переход в полноэкранный режим обрабатывается в основном обработчике клика на body
+
+        function forceResetFaceElements() {
+            // ЖЁСТКИЙ сброс используется ТОЛЬКО в конце некоторых анимаций
+            // (например, talking), чтобы точно убрать зависшие keyframes.
+            if (mouth) {
+                var oldMouth = mouth;
+                var newMouth = oldMouth.cloneNode(true);
+                newMouth.style.webkitAnimation = '';
+                newMouth.style.animation = '';
+                newMouth.style.webkitTransform = '';
+                newMouth.style.transform = '';
+                oldMouth.parentNode.replaceChild(newMouth, oldMouth);
+                mouth = newMouth;
+            }
+
+            var eyesRow = face.querySelector('.eyes-row');
+            if (eyesRow) {
+                var newEyesRow = eyesRow.cloneNode(true);
+                var eyes = newEyesRow.querySelectorAll('.eye');
+                for (var i = 0; i < eyes.length; i++) {
+                    eyes[i].style.webkitAnimation = '';
+                    eyes[i].style.animation = '';
+                    eyes[i].style.webkitTransform = '';
+                    eyes[i].style.transform = '';
+                }
+                eyesRow.parentNode.replaceChild(newEyesRow, eyesRow);
+            }
+        }
+
+        // --- 3. РАНДОМНОЕ МОРГАНИЕ (АВТОНОМНОЕ) + ПОДМИГИВАНИЕ/ЗЕВОК ---
+        function autonomousBlink() {
+            // Моргаем/зеваем только если:
+            // 1. Не офлайн
+            // 2. Нет локальной анимации (слушает/думает/говорит по клику)
+            // 3. Текущее лицо в "спокойном" состоянии: idle/normal/' ' (без активных эмоций)
+            // Используем кэшированное состояние вместо чтения face.className
+            var hasStrongEmotion = (
+                currentEmotion === 'listening' ||
+                currentEmotion === 'thinking' ||
+                currentEmotion === 'talking' ||
+                currentEmotion === 'wink' ||
+                currentEmotion === 'yawn' ||
+                currentEmotion === 'dizzy' ||
+                currentEmotion === 'sad'
+            );
+
+            // В ночном режиме (часы) и в спец-режимах (таймер/музыка) не моргаем — отдельная анимация
+            if (currentMode === 'clock' || currentMode === 'timer' || currentMode === 'music') {
+                var delaysClock = [5000, 7000, 9000];
+                var nextDelayClock = delaysClock[Math.floor(Math.random() * delaysClock.length)];
+                setTimeout(autonomousBlink, nextDelayClock);
+                return;
+            }
+
+            // Не моргаем во время анимации зарядки/разрядки
+            if (isChargingAnim || isDischargingAnim) {
+                var delays = [5000, 7000, 9000];
+                var nextDelay = delays[Math.floor(Math.random() * delays.length)];
+                setTimeout(autonomousBlink, nextDelay);
+                return;
+            }
+
+            if (!isOffline && !isLocalAnim && !hasStrongEmotion) {
+                // Проверяем, нужно ли запустить анимацию на текущем значении счетчика
+                // Анимация запускается только если нет активной анимации подмигивания/зевка
+                var doYawn = (!isBlinkAnim && blinkCounter === yawnAt);
+                var doWink = (!isBlinkAnim && !doYawn && blinkCounter === winkAt); // зевок приоритетнее подмига
+
+                if (doYawn) {
+                    // ЗЕВОК: отдельное время проигрыша, без обычного моргания
+                    isBlinkAnim = true;
+                    face.classList.add('yawn');
+                    setTimeout(function () {
+                        face.classList.remove('yawn');
+                        isBlinkAnim = false;
+                    }, 3000); // время на полный зевок - 3 секунды
+                } else if (doWink) {
+                    // ПОДМИГИВАНИЕ: тоже без обычного моргания в этот тик
+                    isBlinkAnim = true;
+                    face.classList.add('wink');
+                    setTimeout(function () {
+                        face.classList.remove('wink');
+                        isBlinkAnim = false;
+                    }, 3000); // даём глазу "подмигнуть" - 3 секунды
+                } else if (!isBlinkAnim) {
+                    // Обычное короткое моргание (только если нет активной анимации)
+                    // Используем requestAnimationFrame для более плавного удаления класса
+                    face.classList.add('blink');
+                    // Синхронизируем с длительностью анимации (150ms) + небольшой запас
+                    setTimeout(function () {
+                        face.classList.remove('blink');
+                    }, 160);
+                }
+                
+                // Увеличиваем счетчик всегда (даже во время анимации, чтобы не пропустить моменты)
+                blinkCounter++;
+                
+                // Если счетчик достиг максимума - обнуляем и выбираем новые случайные числа
+                if (blinkCounter > MAX_BLINK_COUNT) {
+                    resetBlinkCycle();
+                }
+            }
+            
+            // Рандом как в старом коде
+            var delays = [5000, 7000, 9000];
+            var nextDelay = delays[Math.floor(Math.random() * delays.length)];
+            
+            setTimeout(autonomousBlink, nextDelay);
+        }
+        // Инициализируем первый цикл
+        resetBlinkCycle();
+        setTimeout(autonomousBlink, 3000);
+
+        // --- 4. ЛОКАЛЬНАЯ ИНТЕРАКЦИЯ (КЛИК) ---
+        // Воспроизводим Listen -> Think -> Talk, но если активен таймер — по клику его убираем
+        
+        var longPressTimer = null;
+        var longPressDelay = 500; // Задержка для удержания (мс)
+        var isLongPress = false;
+        
+        // Обработка удержания экрана для отключения анимации разрядки
+        document.body.addEventListener('touchstart', function(e) {
+            // Блокируем тапы если устройство заблокировано
+            if (deviceLocked) {
+                e.preventDefault();
+                e.stopPropagation();
+                return;
+            }
+            
+            // Работаем только если анимация разрядки активна и не отключена пользователем
+            if (isDischargingAnim && !dischargingDisabled) {
+                isLongPress = false;
+                longPressTimer = setTimeout(function() {
+                    isLongPress = true;
+                    face.classList.remove('discharging');
+                    isDischargingAnim = false;
+                    dischargingDisabled = true; // Отключаем анимацию разрядки до изменения состояния зарядки
+                }, longPressDelay);
+            }
+        });
+        
+        document.body.addEventListener('touchend', function(e) {
+            if (longPressTimer) {
+                clearTimeout(longPressTimer);
+                longPressTimer = null;
+            }
+        });
+        
+        // Для мыши (на случай тестирования на ПК)
+        document.body.addEventListener('mousedown', function(e) {
+            // Работаем только если анимация разрядки активна и не отключена пользователем
+            if (isDischargingAnim && !dischargingDisabled) {
+                isLongPress = false;
+                longPressTimer = setTimeout(function() {
+                    isLongPress = true;
+                    face.classList.remove('discharging');
+                    isDischargingAnim = false;
+                    dischargingDisabled = true; // Отключаем анимацию разрядки до изменения состояния зарядки
+                }, longPressDelay);
+            }
+        });
+        
+        document.body.addEventListener('mouseup', function(e) {
+            if (longPressTimer) {
+                clearTimeout(longPressTimer);
+                longPressTimer = null;
+            }
+        });
+        
+        document.body.addEventListener('click', function(e) {
+            // Блокируем клики если устройство заблокировано
+            if (deviceLocked) {
+                e.preventDefault();
+                e.stopPropagation();
+                return;
+            }
+            
+            // Первый клик используется только для полноэкранного режима
+            if (!fullscreenRequested) {
+                fullscreenRequested = true;
+                if (!isFullscreen()) {
+                    requestFullscreen();
+                }
+                return; // Не запускаем запись голоса при первом клике
+            }
+            
+            // Если сейчас показывает таймер — кликом выключаем его (как будильник)
+            if (currentMode === 'timer') {
+                stopTimerFromClient();
+                return;
+            }
+            
+            // В режиме vibe - клик по лицу возвращает на главный экран
+            if (currentMode === 'vibe') {
+                var target = e.target;
+                var clickedFace = false;
+                while (target && target !== document.body) {
+                    if (target.id === 'face' || (target.className && typeof target.className === 'string' && target.className.indexOf('face-container') !== -1)) {
+                        clickedFace = true;
+                        break;
+                    }
+                    target = target.parentNode;
+                }
+                if (clickedFace) {
+                    // Клик по лицу - возврат на главный экран
+                    var xhr = new XMLHttpRequest();
+                    xhr.open('GET', '/api/set?mode=idle', true);
+                    xhr.send();
+                }
+                // Клики по изображению обрабатываются свайпом
+                return;
+            }
+            
+            // В режиме смарт-хома - клик вне устройства возвращает на главный экран
+            if (currentMode === 'smarthome') {
+                // Проверяем, был ли клик по карточке устройства или её дочерним элементам
+                var target = e.target;
+                var clickedDevice = false;
+                while (target && target !== document.body) {
+                    // Проверяем класс элемента или его родителя
+                    if (target.className) {
+                        var className = target.className;
+                        if (typeof className === 'string' && className.indexOf('device-card') !== -1) {
+                            clickedDevice = true;
+                            break;
+                        }
+                        // Также проверяем дочерние элементы (icon, name, status)
+                        if (typeof className === 'string' && (
+                            className.indexOf('device-icon') !== -1 ||
+                            className.indexOf('device-name') !== -1 ||
+                            className.indexOf('device-status') !== -1
+                        )) {
+                            clickedDevice = true;
+                            break;
+                        }
+                    }
+                    target = target.parentNode;
+                }
+                // Если клик вне устройства - возврат на главный экран (idle)
+                if (!clickedDevice) {
+                    var xhr = new XMLHttpRequest();
+                    xhr.open('GET', '/api/set?mode=idle', true);
+                    xhr.send();
+                    return;
+                }
+                // Если клик по устройству - ничего не делаем, переключение обрабатывается в renderSmartHome
+                return;
+            }
+            
+            // Не запускаем последовательность во время анимации зарядки/разрядки
+            if (isChargingAnim || isDischargingAnim) {
+                return;
+            }
+            
+            // В режиме часов и во всех остальных режимах - запуск записи голоса
+            startLocalSequence();
+        });
+
+        function startLocalSequence() {
+            if (isLocalAnim) return; // Уже занят
+            isLocalAnim = true;
+            
+            // Вибрация "Внимание" (Wake Up) - при начале записи
+            vibrateWakeUp();
+            
+            // Запоминаем режим перед запросом к ИИ
+            modeBeforeAI = currentMode;
+            
+            // Шаг 1: Слушаю - записываем голос 5 секунд
+            currentEmotion = 'listening'; // Обновляем кэш
+            face.className = 'face-container listening';
+            hideAllWidgets();
+            subs.innerText = "Слушаю...";
+            
+            startVoiceRecording();
+        }
+        
+        function startVoiceRecording() {
+            // Проверяем блокировку
+            if (deviceLocked) {
+                return;
+            }
+            
+            // Проверяем поддержку getUserMedia (старый API для Firefox 31)
+            var getUserMedia = navigator.getUserMedia || 
+                              navigator.webkitGetUserMedia || 
+                              navigator.mozGetUserMedia || 
+                              navigator.msGetUserMedia;
+            
+            if (!getUserMedia) {
+                // Fallback если нет поддержки
+                subs.innerText = "Микрофон не поддерживается";
+                setTimeout(function() {
+                    isLocalAnim = false;
+                    currentEmotion = 'normal'; // Обновляем кэш
+                    face.className = 'face-container';
+                }, 2000);
+                return;
+            }
+            
+            audioChunks = [];
+            
+            getUserMedia.call(navigator, { audio: true }, function(stream) {
+                audioStream = stream;
+                
+                // Пробуем использовать MediaRecorder если доступен
+                if (window.MediaRecorder) {
+                    try {
+                        mediaRecorder = new MediaRecorder(stream);
+                        mediaRecorder.ondataavailable = function(event) {
+                            if (event.data.size > 0) {
+                                audioChunks.push(event.data);
+                            }
+                        };
+                        
+                        mediaRecorder.onstop = function() {
+                            if (audioChunks.length > 0) {
+                                var audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+                                sendAudioToServer(audioBlob);
+                            } else {
+                                showError("Не удалось записать аудио");
+                            }
+                        };
+                        
+                        mediaRecorder.start();
+                        
+                        // Останавливаем запись через 5 секунд
+                        setTimeout(function() {
+                            if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+                                mediaRecorder.stop();
+                            }
+                            stopRecording();
+                        }, 5000);
+                    } catch(e) {
+                        // Если MediaRecorder не работает, используем альтернативный способ
+                        recordWithWebAudio(stream);
+                    }
+                } else {
+                    // MediaRecorder не поддерживается, используем Web Audio API
+                    recordWithWebAudio(stream);
+                }
+            }, function(error) {
+                subs.innerText = "Ошибка доступа к микрофону";
+                setTimeout(function() {
+                    isLocalAnim = false;
+                    currentEmotion = 'normal'; // Обновляем кэш
+                    face.className = 'face-container';
+                }, 2000);
+            });
+        }
+        
+        function recordWithWebAudio(stream) {
+            // Альтернативный способ записи через Web Audio API для старых браузеров
+            var AudioContext = window.AudioContext || window.webkitAudioContext;
+            if (!AudioContext) {
+                subs.innerText = "Аудио не поддерживается";
+                setTimeout(function() {
+                    isLocalAnim = false;
+                    currentEmotion = 'normal'; // Обновляем кэш
+                    face.className = 'face-container';
+                }, 2000);
+                return;
+            }
+            
+            var audioContext = new AudioContext();
+            var source = audioContext.createMediaStreamSource(stream);
+            var processor = audioContext.createScriptProcessor(4096, 1, 1);
+            
+            processor.onaudioprocess = function(e) {
+                audioChunks.push(e.inputBuffer.getChannelData(0));
+            };
+            
+            source.connect(processor);
+            processor.connect(audioContext.destination);
+            
+            // Останавливаем через 5 секунд
+            setTimeout(function() {
+                processor.disconnect();
+                source.disconnect();
+                stopRecording();
+                // Конвертируем аудио данные в формат для отправки
+                convertAndSendAudio();
+            }, 5000);
+        }
+        
+        function stopRecording() {
+            if (audioStream) {
+                audioStream.getTracks().forEach(function(track) {
+                    track.stop();
+                });
+                audioStream = null;
+            }
+            // Дополнительная очистка памяти
+            if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+                try {
+                    mediaRecorder.stop();
+                } catch(e) {}
+            }
+            mediaRecorder = null;
+            audioChunks = null;
+        }
+        
+        function convertAndSendAudio() {
+            // Переход в режим thinking
+            // При thinking всегда показываем idle-экран, независимо от текущего режима
+            currentEmotion = 'thinking'; // Обновляем кэш
+            setFaceByModeAndEmotion('idle', 'thinking');
+            hideAllWidgets();
+            subs.innerText = "Думаю...";
+            
+            // Если использовали MediaRecorder, отправляем blob напрямую
+            if (mediaRecorder && audioChunks.length > 0 && audioChunks[0] instanceof Blob) {
+                var audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+                sendAudioToServer(audioBlob);
+            } else {
+                // Если использовали Web Audio, создаем blob из данных
+                // Для старых браузеров без MediaRecorder создаем простой blob
+                try {
+                    var audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+                    sendAudioToServer(audioBlob);
+                } catch(e) {
+                    // Если не удалось создать blob, отправляем пустой
+                    showError("Ошибка создания аудио файла");
+                }
+            }
+        }
+        
+        function sendAudioToServer(audioBlob) {
+            var formData = new FormData();
+            
+            if (audioBlob) {
+                formData.append('audio', audioBlob, 'recording.webm');
+            } else if (audioChunks.length > 0) {
+                // Если нет blob, создаем из chunks
+                var blob = new Blob(audioChunks, { type: 'audio/webm' });
+                formData.append('audio', blob, 'recording.webm');
+            } else {
+                // Fallback - отправляем пустой запрос
+                subs.innerText = "Ошибка записи";
+                setTimeout(function() {
+                    isLocalAnim = false;
+                    currentEmotion = 'normal'; // Обновляем кэш
+                    face.className = 'face-container';
+                }, 2000);
+                return;
+            }
+            
+            var xhr = new XMLHttpRequest();
+            xhr.open('POST', '/api/voice', true);
+            
+            xhr.onreadystatechange = function() {
+                if (xhr.readyState === 4) {
+                    if (xhr.status === 200) {
+                        try {
+                            var response = JSON.parse(xhr.responseText);
+                            if (response.text) {
+                                showAIResponse(response.text);
+                            } else {
+                                showError("Нет ответа от ИИ");
+                            }
+                        } catch(e) {
+                            showError("Ошибка обработки ответа");
+                        }
+                    } else {
+                        showError("Ошибка сервера");
+                    }
+                }
+            };
+            
+            xhr.onerror = function() {
+                showError("Ошибка соединения");
+            };
+            
+            xhr.send(formData);
+            // НЕ сбрасываем isLocalAnim здесь - сервер должен установить thinking/talking
+            // Флаг будет сброшен в applyServerState, когда сервер вернет thinking или talking
+            
+            // Очистка памяти после отправки аудио
+            audioChunks = null;
+            mediaRecorder = null;
+            audioStream = null;
+        }
+        
+        function showAIResponse(text) {
+            // Переключаемся в режим text и показываем ответ потоково
+            isLocalAnim = false;
+            currentEmotion = 'normal'; // Обновляем кэш
+            face.className = 'face-container';
+            currentMode = 'text';
+            
+            // Восстанавливаем анимацию батареи, если нужно
+            restoreBatteryAnimation();
+            
+            // Устанавливаем режим text через сервер
+            sendStateUpdate({ mode: 'text', text: text, emotion: 'talking' });
+            
+            // Также запускаем потоковый вывод локально
+            widgetsLayer.classList.add('active');
+            wText.classList.add('active');
+            startTextStream(text);
+            subs.innerText = "Ответ ИИ";
+        }
+        
+        function showError(message) {
+            isLocalAnim = false;
+            currentEmotion = 'normal'; // Обновляем кэш
+            face.className = 'face-container';
+            
+            // Восстанавливаем анимацию батареи, если нужно
+            restoreBatteryAnimation();
+            
+            subs.innerText = message;
+            setTimeout(function() {
+                subs.innerText = "";
+            }, 3000);
+        }
+
+        // --- 5. ДЕТЕКТОР ТРЯСКИ (ГОЛОВОКРУЖЕНИЕ) ---
+        var lastShakeTime = 0;
+        var SHAKE_COOLDOWN = 3000;   // минимум 3 секунды между "головокружениями"
+        var DIZZY_DURATION = 2000;   // сколько длится эмоция "головокружение"
+
+        function initShakeDetection() {
+            if (!('DeviceMotionEvent' in window)) {
+                return; // датчик движения не поддерживается
+            }
+
+            window.addEventListener('devicemotion', function (event) {
+                if (isOffline || isLocalAnim || isChargingAnim || isDischargingAnim) return; // не мешаем другим анимациям и оффлайн-состоянию
+                if (!event.accelerationIncludingGravity) return;
+
+                var acc = event.accelerationIncludingGravity;
+                var ax = acc.x || 0;
+                var ay = acc.y || 0;
+                var az = acc.z || 0;
+
+                // Общая "сила" тряски
+                var total = Math.sqrt(ax*ax + ay*ay + az*az);
+
+                // Для старых телефонов делаем порог не очень большим
+                if (total > 18) { // подбери порог экспериментально (15–22)
+                    var now = Date.now();
+                    if (now - lastShakeTime > SHAKE_COOLDOWN) {
+                        lastShakeTime = now;
+                        triggerDizzyFromShake();
+                    }
+                }
+            }, false);
+        }
+
+        function triggerDizzyFromShake() {
+            if (isLocalAnim || isChargingAnim || isDischargingAnim) return;
+            isLocalAnim = true;
+
+            // Вибрация "Раздражение/Головокружение" (Dizzy)
+            vibrateDizzy();
+
+            currentEmotion = 'dizzy'; // Обновляем кэш
+            face.className = 'face-container dizzy';
+            subs.innerText = "Уууу, голова кружится...";
+            hideAllWidgets();
+
+            setTimeout(function () {
+                isLocalAnim = false;
+                currentEmotion = 'normal'; // Обновляем кэш
+                subs.innerText = "";
+                // Возвращаемся просто к "чистому" лицу — без жёсткого ресета,
+                // чтобы анимации не обрывались резко.
+                face.className = 'face-container';
+                
+                // Восстанавливаем анимацию батареи, если нужно
+                restoreBatteryAnimation();
+            }, DIZZY_DURATION);
+        }
+
+        // --- 6. ОБЩЕЕ ---
+        function setOnline(status) {
+            if (status) {
+                if (isOffline) {
+                    // Был офлайн и только что восстановилась связь —
+                    // перезагружаем страницу, чтобы подтянуть новые фичи
+                    location.reload();
+                    isOffline = false;
+                    currentEmotion = 'normal'; // Обновляем кэш
+                    face.classList.remove('sad');
+                }
+            } else {
+                // Не показываем грусть во время анимации зарядки/разрядки
+                if (isChargingAnim || isDischargingAnim) {
+                    return;
+                }
+                
+                if (!isOffline) {
+                    isOffline = true;
+                    currentEmotion = 'sad'; // Обновляем кэш
+                    face.className = 'face-container sad'; 
+                    hideAllWidgets();
+                    subs.innerText = "Нет связи...";
+                }
+            }
+        }
+
+        // --- 7. ВСПОМОГАТЕЛЬНОЕ ---
+        function stopTimerFromClient() {
+            try {
+                var xhr = new XMLHttpRequest();
+                xhr.open('GET', '/api/set?mode=idle&timerStop=1', true);
+                xhr.send();
+            } catch (e) {}
+        }
+
+        function getRandomInt(min, max) {
+            min = Math.ceil(min);
+            max = Math.floor(max);
+            return Math.floor(Math.random() * (max - min + 1)) + min;
+        }
+
+        function updateBigClock() {
+            if (!elBigClock || !elBigDate) return;
+            
+            var now = new Date();
+            var h = now.getHours();
+            var m = now.getMinutes();
+            if (h<10) h='0'+h;
+            if (m<10) m='0'+m;
+            
+            // Используем универсальную функцию для установки текста
+            setElementText(elBigClock, h + ':' + m);
+            
+            var d = now.getDate();
+            var mo = now.getMonth() + 1;
+            setElementText(elBigDate, d + '.' + (mo<10?'0'+mo:mo));
+        }
+        
+        // Вызываем сразу при загрузке, чтобы не показывать "loading"
+        updateBigClock();
+        setInterval(updateBigClock, 1000);
+        initShakeDetection();
+
+        // --- 8. BATTERY API (ОТСЛЕЖИВАНИЕ ЗАРЯДКИ) ---
+        var lastChargingState = null;
+        var chargingAnimationTimeout = null;
+
+        function initBatteryMonitoring() {
+            // Для Firefox Android 4 используется navigator.mozBattery или navigator.battery
+            var battery = navigator.battery || navigator.mozBattery || navigator.webkitBattery;
+            
+            if (!battery) {
+                // Если Battery API не поддерживается, пробуем получить через Promise
+                if (navigator.getBattery) {
+                    navigator.getBattery().then(function(batt) {
+                        setupBatteryListeners(batt);
+                        updateBatteryState(batt);
+                        // Периодическая проверка на случай, если события не работают
+                        setInterval(function() {
+                            updateBatteryState(batt);
+                        }, 5000);
+                    }).catch(function(err) {
+                        console.log('Battery API не доступен:', err);
+                    });
+                } else {
+                    console.log('Battery API не поддерживается');
+                }
+                return;
+            }
+            
+            // Для старых Firefox (синхронный API)
+            setupBatteryListeners(battery);
+            updateBatteryState(battery);
+            
+            // Периодическая проверка для старых Firefox (на случай, если события не срабатывают)
+            setInterval(function() {
+                updateBatteryState(battery);
+            }, 5000);
+        }
+
+        function setupBatteryListeners(battery) {
+            // Обработчики событий для изменения статуса зарядки
+            if (battery.addEventListener) {
+                battery.addEventListener('chargingchange', function() {
+                    updateBatteryState(battery);
+                });
+                battery.addEventListener('levelchange', function() {
+                    updateBatteryState(battery);
+                });
+            } else if (battery.onchargingchange !== undefined) {
+                // Для старых Firefox (свойства on*)
+                battery.onchargingchange = function() {
+                    updateBatteryState(battery);
+                };
+                battery.onlevelchange = function() {
+                    updateBatteryState(battery);
+                };
+            }
+        }
+
+        function updateBatteryState(battery) {
+            if (!battery) return;
+            
+            var isCharging = battery.charging;
+            var batteryLevel = Math.round(battery.level * 100); // Процент батареи (0-100)
+            
+            // Отправляем информацию о батарее на сервер
+            sendBatteryInfo(batteryLevel, isCharging);
+            
+            // Проверяем, не активны ли другие важные анимации
+            // Используем кэшированное состояние вместо чтения face.className
+            var hasImportantAnim = (
+                currentEmotion === 'listening' ||
+                currentEmotion === 'thinking' ||
+                currentEmotion === 'talking' ||
+                currentEmotion === 'dizzy' ||
+                isLocalAnim
+            );
+            
+            // Если состояние изменилось
+            if (lastChargingState !== isCharging) {
+                lastChargingState = isCharging;
+                
+                // Вибрация "Энергия" (Charging) - при подключении/отключении зарядки
+                vibrateCharging(isCharging);
+                
+                // При изменении состояния зарядки сбрасываем флаг отключения анимации
+                dischargingDisabled = false;
+                
+                // Если есть важная анимация, откладываем анимацию зарядки
+                if (hasImportantAnim) {
+                    // Проверяем снова через 2 секунды
+                    setTimeout(function() {
+                        updateBatteryState(battery);
+                    }, 2000);
+                    return;
+                }
+                
+                // Убираем предыдущие классы зарядки
+                face.classList.remove('charging', 'discharging');
+                isChargingAnim = false;
+                isDischargingAnim = false;
+                
+                // Очищаем предыдущий таймаут, если был
+                if (chargingAnimationTimeout) {
+                    clearTimeout(chargingAnimationTimeout);
+                    chargingAnimationTimeout = null;
+                }
+                
+                if (isCharging) {
+                    // Подключен к зарядке - короткая приятная анимация
+                    isChargingAnim = true;
+                    face.classList.add('charging');
+                    
+                    // Убираем класс после завершения анимации (1.2 секунды - синхронизировано с CSS)
+                    chargingAnimationTimeout = setTimeout(function() {
+                        face.classList.remove('charging');
+                        isChargingAnim = false;
+                        chargingAnimationTimeout = null;
+                    }, 1200);
+                } else {
+                    // Отключен от зарядки - пульсация (бесконечная)
+                    // Но только если нет других активных анимаций и анимация не отключена пользователем
+                    if (!hasImportantAnim && !dischargingDisabled) {
+                        isDischargingAnim = true;
+                        face.classList.add('discharging');
+                    }
+                }
+            } else {
+                // Если состояние не изменилось
+                if (isCharging) {
+                    // На зарядке - убираем discharging, если он был
+                    if (isDischargingAnim) {
+                        face.classList.remove('discharging');
+                        isDischargingAnim = false;
+                    }
+                } else {
+                    // НЕ на зарядке - пульсация должна продолжаться
+                    // Убираем только если есть важные анимации или анимация отключена пользователем
+                    if (hasImportantAnim || dischargingDisabled) {
+                        if (isDischargingAnim) {
+                            face.classList.remove('discharging');
+                            isDischargingAnim = false;
+                        }
+                    } else {
+                        // Восстанавливаем пульсацию, если её нет и она не отключена
+                        if (!isDischargingAnim && !face.classList.contains('discharging')) {
+                            isDischargingAnim = true;
+                            face.classList.add('discharging');
+                        }
+                    }
+                }
+            }
+        }
+
+        // Функция для восстановления анимации батареи после завершения других анимаций
+        function restoreBatteryAnimation() {
+            // Проверяем статус батареи и применяем соответствующую анимацию
+            var battery = navigator.battery || navigator.mozBattery || navigator.webkitBattery;
+            if (battery) {
+                updateBatteryState(battery);
+            } else if (navigator.getBattery) {
+                navigator.getBattery().then(function(batt) {
+                    updateBatteryState(batt);
+                }).catch(function(err) {
+                    // Игнорируем ошибки
+                });
+            }
+        }
+        
+        // Функция для принудительного отключения анимации разрядки (используется при двойном клике)
+        function stopDischargingAnimation() {
+            if (isDischargingAnim) {
+                face.classList.remove('discharging');
+                isDischargingAnim = false;
+            }
+        }
+
+        // Функция отправки информации о батарее на сервер
+        function sendBatteryInfo(batteryLevel, isCharging) {
+            try {
+                var xhr = new XMLHttpRequest();
+                xhr.open('POST', '/api/device/info', true);
+                xhr.setRequestHeader('Content-Type', 'application/json');
+                xhr.send(JSON.stringify({
+                    battery: batteryLevel,
+                    charging: isCharging,
+                    deviceName: deviceName
+                }));
+            } catch(e) {
+                // Игнорируем ошибки отправки
+            }
+        }
+
+        // Функция обновления визуального индикатора блокировки
+        function updateLockIndicator() {
+            var lockOverlay = document.getElementById('lockOverlay');
+            if (!lockOverlay) {
+                // Создаем overlay если его нет
+                lockOverlay = document.createElement('div');
+                lockOverlay.id = 'lockOverlay';
+                lockOverlay.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.7); z-index: 10000; display: none; align-items: center; justify-content: center; flex-direction: column; color: white; font-size: 24px;';
+                lockOverlay.innerHTML = '<i class="fas fa-lock" style="font-size: 48px; margin-bottom: 20px;"></i><div>Устройство заблокировано</div>';
+                document.body.appendChild(lockOverlay);
+            }
+            
+            if (deviceLocked) {
+                lockOverlay.style.display = 'flex';
+            } else {
+                lockOverlay.style.display = 'none';
+            }
+        }
+
+        // Инициализируем мониторинг батареи после загрузки
+        window.addEventListener('load', function() {
+            // Небольшая задержка, чтобы не мешать boot-анимации
+            setTimeout(initBatteryMonitoring, 2000);
+        });
+
+    </script>
+</body>
+</html>

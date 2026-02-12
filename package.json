@@ -1,0 +1,16 @@
+{
+  "name": "umaai-server",
+  "version": "1.0.0",
+  "description": "UmaAI Server with Gemini voice integration",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "@google/generative-ai": "^0.21.0"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}
+

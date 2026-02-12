@@ -1,0 +1,1311 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UmaAI Admin</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --purple-dark: #1a0d2e;
+            --purple-darker: #0f0519;
+            --purple-medium: #2d1b4e;
+            --purple-light: #4a2c7a;
+            --purple-lighter: #6b46c1;
+            --purple-accent: #8b5cf6;
+            --purple-bright: #a78bfa;
+            --purple-glow: #c4b5fd;
+            --text-primary: #f3f4f6;
+            --text-secondary: #d1d5db;
+            --text-muted: #9ca3af;
+            --success: #10b981;
+            --danger: #ef4444;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, var(--purple-darker) 0%, var(--purple-dark) 50%, var(--purple-medium) 100%);
+            color: var(--text-primary);
+            min-height: 100vh;
+            padding: 2rem;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 3rem;
+            padding: 2rem 0;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--purple-bright) 0%, var(--purple-accent) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 0.5rem;
+            letter-spacing: -0.02em;
+        }
+
+        .header p {
+            color: var(--text-secondary);
+            font-size: 1rem;
+        }
+
+        .section {
+            background: rgba(45, 27, 78, 0.4);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(139, 92, 246, 0.2);
+            border-radius: 20px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            transition: all 0.3s ease;
+        }
+
+        .section:hover {
+            border-color: rgba(139, 92, 246, 0.4);
+            box-shadow: 0 12px 48px rgba(139, 92, 246, 0.2);
+            transform: translateY(-2px);
+        }
+
+        .section-header {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .section-header i {
+            font-size: 1.5rem;
+            color: var(--purple-accent);
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(139, 92, 246, 0.1);
+            border-radius: 12px;
+        }
+
+        .section-header h3 {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .section-description {
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            margin-bottom: 1.5rem;
+            margin-left: 3.5rem;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-top: 1.5rem;
+        }
+
+        .btn {
+            background: rgba(139, 92, 246, 0.1);
+            border: 1px solid rgba(139, 92, 246, 0.3);
+            color: var(--text-primary);
+            padding: 1rem 1.5rem;
+            border-radius: 12px;
+            cursor: pointer;
+            font-size: 0.95rem;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.75rem;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+            transition: left 0.5s;
+        }
+
+        .btn:hover::before {
+            left: 100%;
+        }
+
+        .btn:hover {
+            background: rgba(139, 92, 246, 0.2);
+            border-color: var(--purple-accent);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(139, 92, 246, 0.3);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+            box-shadow: 0 4px 12px rgba(139, 92, 246, 0.2);
+        }
+
+        .btn i {
+            font-size: 1.1rem;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--purple-accent) 0%, var(--purple-lighter) 100%);
+            border-color: var(--purple-accent);
+        }
+
+        .btn-primary:hover {
+            background: linear-gradient(135deg, var(--purple-lighter) 0%, var(--purple-accent) 100%);
+            box-shadow: 0 8px 24px rgba(139, 92, 246, 0.4);
+        }
+
+        .btn-success {
+            background: rgba(16, 185, 129, 0.1);
+            border-color: rgba(16, 185, 129, 0.3);
+        }
+
+        .btn-success:hover {
+            background: rgba(16, 185, 129, 0.2);
+            border-color: var(--success);
+        }
+
+        .btn-danger {
+            background: rgba(239, 68, 68, 0.1);
+            border-color: rgba(239, 68, 68, 0.3);
+        }
+
+        .btn-danger:hover {
+            background: rgba(239, 68, 68, 0.2);
+            border-color: var(--danger);
+        }
+
+        .input-group {
+            margin-bottom: 1.5rem;
+            margin-left: 3.5rem;
+        }
+
+        .input-group label {
+            display: block;
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+        }
+
+        input[type="text"] {
+            width: 100%;
+            padding: 1rem;
+            background: rgba(26, 13, 46, 0.6);
+            border: 1px solid rgba(139, 92, 246, 0.2);
+            border-radius: 12px;
+            color: var(--text-primary);
+            font-size: 1rem;
+            transition: all 0.3s ease;
+            font-family: inherit;
+        }
+
+        input[type="text"]:focus {
+            outline: none;
+            border-color: var(--purple-accent);
+            background: rgba(26, 13, 46, 0.8);
+            box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.1);
+        }
+
+        input[type="text"]::placeholder {
+            color: var(--text-muted);
+        }
+
+        .device-status {
+            margin-left: 3.5rem;
+            margin-bottom: 1.5rem;
+            padding: 1rem;
+            background: rgba(139, 92, 246, 0.1);
+            border-radius: 12px;
+            border: 1px solid rgba(139, 92, 246, 0.2);
+        }
+
+        .device-status strong {
+            color: var(--purple-accent);
+            font-weight: 600;
+        }
+
+        .status-indicator {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: var(--success);
+            margin-right: 0.5rem;
+            box-shadow: 0 0 10px var(--success);
+        }
+
+        @media (max-width: 768px) {
+            body {
+                padding: 1rem;
+            }
+
+            .header h1 {
+                font-size: 2rem;
+            }
+
+            .grid {
+                grid-template-columns: 1fr;
+            }
+
+            .input-group,
+            .section-description,
+            .device-status {
+                margin-left: 0;
+            }
+        }
+
+        .notification {
+            position: fixed;
+            top: 2rem;
+            right: 2rem;
+            background: rgba(139, 92, 246, 0.95);
+            backdrop-filter: blur(10px);
+            color: white;
+            padding: 1rem 1.5rem;
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(139, 92, 246, 0.4);
+            display: none;
+            align-items: center;
+            gap: 0.75rem;
+            z-index: 1000;
+            animation: slideIn 0.3s ease;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        .notification.show {
+            display: flex;
+        }
+
+        /* VIBE EDITOR STYLES */
+        .vibe-editor-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 1.5rem;
+            margin-top: 1.5rem;
+            margin-left: 3.5rem;
+        }
+
+        .vibe-slot {
+            background: rgba(26, 13, 46, 0.6);
+            border: 2px solid rgba(139, 92, 246, 0.2);
+            border-radius: 16px;
+            padding: 1rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            transition: all 0.3s ease;
+        }
+
+        .vibe-slot:hover {
+            border-color: rgba(139, 92, 246, 0.4);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(139, 92, 246, 0.2);
+        }
+
+        .vibe-slot-number {
+            font-size: 0.85rem;
+            color: var(--purple-accent);
+            font-weight: 600;
+            text-align: center;
+            padding: 0.25rem;
+            background: rgba(139, 92, 246, 0.1);
+            border-radius: 8px;
+        }
+
+        .vibe-slot-preview {
+            width: 100%;
+            height: 150px;
+            background: rgba(45, 27, 78, 0.4);
+            border: 1px dashed rgba(139, 92, 246, 0.3);
+            border-radius: 12px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            color: var(--text-muted);
+            overflow: hidden;
+            position: relative;
+        }
+
+        .vibe-slot-preview img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .vibe-slot-preview i {
+            font-size: 2rem;
+            opacity: 0.5;
+        }
+
+        .vibe-slot-preview span {
+            font-size: 0.85rem;
+        }
+
+        .vibe-slot-actions {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+
+        .btn-sm {
+            padding: 0.5rem 0.75rem;
+            font-size: 0.85rem;
+            flex: 1;
+            min-width: 80px;
+        }
+
+        @media (max-width: 768px) {
+            .vibe-editor-container {
+                grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+                margin-left: 0;
+            }
+        }
+
+        /* DEVICES SECTION STYLES */
+        .devices-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 1.5rem;
+            margin-top: 1.5rem;
+            margin-left: 3.5rem;
+        }
+
+        .device-card {
+            background: rgba(26, 13, 46, 0.6);
+            border: 2px solid rgba(139, 92, 246, 0.2);
+            border-radius: 16px;
+            padding: 1.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            transition: all 0.3s ease;
+        }
+
+        .device-card:hover {
+            border-color: rgba(139, 92, 246, 0.4);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(139, 92, 246, 0.2);
+        }
+
+        .device-card.online {
+            border-color: rgba(16, 185, 129, 0.3);
+        }
+
+        .device-card.offline {
+            border-color: rgba(239, 68, 68, 0.3);
+            opacity: 0.6;
+        }
+
+        .device-header {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .device-image {
+            width: 80px;
+            height: 120px;
+            background: rgba(45, 27, 78, 0.4);
+            border: 1px dashed rgba(139, 92, 246, 0.3);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            position: relative;
+        }
+
+        .device-image img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            border-radius: 12px;
+            display: block;
+        }
+
+        .device-image img[style*="display: none"] {
+            display: none !important;
+        }
+
+        .device-image i {
+            font-size: 2rem;
+            color: var(--text-muted);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .device-info {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .device-name {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .device-status {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .device-status.online {
+            color: var(--success);
+        }
+
+        .device-status.offline {
+            color: var(--danger);
+        }
+
+        .device-battery {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+        }
+
+        .device-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            margin-top: 0.5rem;
+        }
+
+        .device-actions .btn {
+            padding: 0.5rem 0.75rem;
+            font-size: 0.85rem;
+            flex: 1;
+            min-width: 80px;
+        }
+
+        .device-placeholder {
+            text-align: center;
+            color: var(--text-muted);
+            padding: 2rem;
+            margin-left: 3.5rem;
+        }
+
+        /* COLLAPSIBLE SECTIONS */
+        .section-header {
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .section-header::after {
+            content: '\f078';
+            font-family: 'Font Awesome 6 Free';
+            font-weight: 900;
+            margin-left: auto;
+            transition: transform 0.3s ease;
+        }
+
+        .section-header.collapsed::after {
+            transform: rotate(-90deg);
+        }
+
+        .section-content {
+            overflow: hidden;
+            transition: max-height 0.3s ease, padding 0.3s ease;
+            max-height: 5000px;
+        }
+
+        .section-content.collapsed {
+            max-height: 0;
+            padding-top: 0;
+            padding-bottom: 0;
+            margin-top: 0;
+            margin-bottom: 0;
+        }
+
+        @media (max-width: 768px) {
+            .devices-container {
+                grid-template-columns: 1fr;
+                margin-left: 0;
+            }
+
+            .device-placeholder {
+                margin-left: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1><i class="fas fa-robot"></i> UmaAI Control</h1>
+            <p>Панель управления эмоциями и режимами</p>
+        </div>
+
+        <!-- DEVICES -->
+        <div class="section">
+            <div class="section-header">
+                <i class="fas fa-mobile-alt"></i>
+                <h3>Подключенные устройства</h3>
+            </div>
+            <p class="section-description">Управление подключенными устройствами UmaAI</p>
+            <div id="devicesContainer" class="devices-container">
+                <div class="device-placeholder">Загрузка устройств...</div>
+            </div>
+        </div>
+
+        <!-- EMOTIONS -->
+        <div class="section">
+            <div class="section-header" onclick="toggleSection(this)">
+                <i class="fas fa-smile"></i>
+                <h3>Эмоции</h3>
+            </div>
+            <div class="section-content">
+                <p class="section-description">Управление эмоциональными состояниями UmaAI</p>
+                <div class="grid">
+                <button class="btn" onclick="send('emotion', 'normal')">
+                    <i class="fas fa-meh"></i>
+                    <span>Норма</span>
+                </button>
+                <button class="btn" onclick="send('emotion', 'blink')">
+                    <i class="fas fa-eye"></i>
+                    <span>Моргнуть</span>
+                </button>
+                <button class="btn" onclick="send('emotion', 'wink')">
+                    <i class="fas fa-smile-wink"></i>
+                    <span>Подмигнуть</span>
+                </button>
+                <button class="btn" onclick="send('emotion', 'yawn')">
+                    <i class="fas fa-moon"></i>
+                    <span>Зевнуть</span>
+                </button>
+                <button class="btn" onclick="send('emotion', 'dizzy')">
+                    <i class="fas fa-dizzy"></i>
+                    <span>Голова кружится</span>
+                </button>
+                <button class="btn" onclick="send('emotion', 'listening')">
+                    <i class="fas fa-ear-listen"></i>
+                    <span>Слушаю</span>
+                </button>
+                <button class="btn" onclick="send('emotion', 'thinking')">
+                    <i class="fas fa-brain"></i>
+                    <span>Думаю</span>
+                </button>
+                <button class="btn" onclick="send('emotion', 'talking')">
+                    <i class="fas fa-comments"></i>
+                    <span>Говорю</span>
+                </button>
+                <button class="btn" onclick="send('emotion', 'sad')">
+                    <i class="fas fa-frown"></i>
+                    <span>Грусть/оффлайн</span>
+                </button>
+                <button class="btn btn-success" onclick="send('emotion', 'charging')">
+                    <i class="fas fa-battery-three-quarters"></i>
+                    <span>Зарядка</span>
+                </button>
+                <button class="btn btn-danger" onclick="send('emotion', 'discharging')">
+                    <i class="fas fa-battery-quarter"></i>
+                    <span>Разрядка</span>
+                </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- MODES -->
+        <div class="section">
+            <div class="section-header" onclick="toggleSection(this)">
+                <i class="fas fa-desktop"></i>
+                <h3>Режимы экрана</h3>
+            </div>
+            <div class="section-content">
+                <p class="section-description">Переключение между различными режимами отображения</p>
+                <div class="grid">
+                <button class="btn btn-primary" onclick="send('mode', 'idle')">
+                    <i class="fas fa-user-circle"></i>
+                    <span>Главный (Лицо)</span>
+                </button>
+                <button class="btn" onclick="send('mode', 'weather')">
+                    <i class="fas fa-cloud-sun"></i>
+                    <span>Погода</span>
+                </button>
+                <button class="btn" onclick="send('mode', 'clock')">
+                    <i class="fas fa-clock"></i>
+                    <span>Ночные часы</span>
+                </button>
+                <button class="btn" onclick="send('mode', 'vibe')">
+                    <i class="fas fa-images"></i>
+                    <span>Vibe (Фоторамка)</span>
+                </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- TIMER -->
+        <div class="section">
+            <div class="section-header" onclick="toggleSection(this)">
+                <i class="fas fa-hourglass-half"></i>
+                <h3>Таймер</h3>
+            </div>
+            <div class="section-content">
+                <p class="section-description">Запускает круговой таймер на экране телефона</p>
+                <div class="grid">
+                <button class="btn" onclick="sendTimer(60)">
+                    <i class="fas fa-play"></i>
+                    <span>1 минута</span>
+                </button>
+                <button class="btn" onclick="sendTimer(180)">
+                    <i class="fas fa-play"></i>
+                    <span>3 минуты</span>
+                </button>
+                <button class="btn" onclick="sendTimer(300)">
+                    <i class="fas fa-play"></i>
+                    <span>5 минут</span>
+                </button>
+                <button class="btn btn-danger" onclick="stopTimer()">
+                    <i class="fas fa-stop"></i>
+                    <span>Стоп таймера</span>
+                </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- MUSIC -->
+        <div class="section">
+            <div class="section-header" onclick="toggleSection(this)">
+                <i class="fas fa-music"></i>
+                <h3>Музыка</h3>
+            </div>
+            <div class="section-content">
+                <p class="section-description">Показывает информацию о треке на экране телефона</p>
+            <div class="input-group">
+                <label><i class="fas fa-headphones"></i> Название трека</label>
+                <input type="text" id="musicTitle" placeholder="Введите название трека" value="Space Journey">
+            </div>
+            <div class="input-group">
+                <label><i class="fas fa-user"></i> Исполнитель</label>
+                <input type="text" id="musicArtist" placeholder="Введите исполнителя" value="UmaAI DJ">
+            </div>
+            <div class="grid">
+                <button class="btn btn-primary" onclick="sendMusic(true)">
+                    <i class="fas fa-play-circle"></i>
+                    <span>Показать музыку</span>
+                </button>
+                <button class="btn" onclick="sendMusic(false)">
+                    <i class="fas fa-eye-slash"></i>
+                    <span>Скрыть (лицо)</span>
+                </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- SMART HOME -->
+        <div class="section">
+            <div class="section-header" onclick="toggleSection(this)">
+                <i class="fas fa-home"></i>
+                <h3>Умный дом</h3>
+            </div>
+            <div class="section-content">
+                <p class="section-description">Управление устройствами умного дома</p>
+            <div class="device-status">
+                <span class="status-indicator"></span>
+                Устройство: <strong id="devState">Лампа</strong>
+            </div>
+            <div class="grid">
+                <button class="btn btn-success" onclick="sendHome('on')">
+                    <i class="fas fa-lightbulb"></i>
+                    <span>Включить Свет</span>
+                </button>
+                <button class="btn btn-danger" onclick="sendHome('off')">
+                    <i class="fas fa-lightbulb-slash"></i>
+                    <span>Выключить Свет</span>
+                </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- AI TEXT -->
+        <div class="section">
+            <div class="section-header" onclick="toggleSection(this)">
+                <i class="fas fa-robot"></i>
+                <h3>Имитация ответа ИИ</h3>
+            </div>
+            <div class="section-content">
+                <p class="section-description">Отправка текстового сообщения от имени UmaAI</p>
+            <div class="input-group">
+                <label><i class="fas fa-comment-dots"></i> Текст ответа</label>
+                <input type="text" id="aiInput" placeholder="Введите ответ ИИ..." value="Я обновился! Лицо старое, а мозги новые.">
+            </div>
+            <div class="grid">
+                <button class="btn btn-primary" onclick="sendAI()">
+                    <i class="fas fa-paper-plane"></i>
+                    <span>Отправить текст</span>
+                </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- VIBE PHOTOS EDITOR -->
+        <div class="section">
+            <div class="section-header" onclick="toggleSection(this)">
+                <i class="fas fa-images"></i>
+                <h3>Редактор Vibe (Фоторамка)</h3>
+            </div>
+            <div class="section-content">
+                <p class="section-description">Управление фотографиями для режима Vibe. Максимум 10 изображений (1-10).</p>
+            <div class="vibe-editor-container" id="vibeEditorContainer">
+                <div class="vibe-slot" data-index="1">
+                    <div class="vibe-slot-number">1</div>
+                    <div class="vibe-slot-preview" id="vibePreview1">
+                        <i class="fas fa-image"></i>
+                        <span>Пусто</span>
+                    </div>
+                    <div class="vibe-slot-actions">
+                        <input type="file" id="vibeFile1" accept="image/*" style="display: none;" onchange="uploadVibeImage(1, this)">
+                        <button class="btn btn-sm" onclick="document.getElementById('vibeFile1').click()">
+                            <i class="fas fa-upload"></i> Загрузить
+                        </button>
+                        <button class="btn btn-sm btn-danger" onclick="deleteVibeImage(1)" style="display: none;" id="vibeDelete1">
+                            <i class="fas fa-trash"></i> Удалить
+                        </button>
+                    </div>
+                </div>
+                <div class="vibe-slot" data-index="2">
+                    <div class="vibe-slot-number">2</div>
+                    <div class="vibe-slot-preview" id="vibePreview2">
+                        <i class="fas fa-image"></i>
+                        <span>Пусто</span>
+                    </div>
+                    <div class="vibe-slot-actions">
+                        <input type="file" id="vibeFile2" accept="image/*" style="display: none;" onchange="uploadVibeImage(2, this)">
+                        <button class="btn btn-sm" onclick="document.getElementById('vibeFile2').click()">
+                            <i class="fas fa-upload"></i> Загрузить
+                        </button>
+                        <button class="btn btn-sm btn-danger" onclick="deleteVibeImage(2)" style="display: none;" id="vibeDelete2">
+                            <i class="fas fa-trash"></i> Удалить
+                        </button>
+                    </div>
+                </div>
+                <div class="vibe-slot" data-index="3">
+                    <div class="vibe-slot-number">3</div>
+                    <div class="vibe-slot-preview" id="vibePreview3">
+                        <i class="fas fa-image"></i>
+                        <span>Пусто</span>
+                    </div>
+                    <div class="vibe-slot-actions">
+                        <input type="file" id="vibeFile3" accept="image/*" style="display: none;" onchange="uploadVibeImage(3, this)">
+                        <button class="btn btn-sm" onclick="document.getElementById('vibeFile3').click()">
+                            <i class="fas fa-upload"></i> Загрузить
+                        </button>
+                        <button class="btn btn-sm btn-danger" onclick="deleteVibeImage(3)" style="display: none;" id="vibeDelete3">
+                            <i class="fas fa-trash"></i> Удалить
+                        </button>
+                    </div>
+                </div>
+                <div class="vibe-slot" data-index="4">
+                    <div class="vibe-slot-number">4</div>
+                    <div class="vibe-slot-preview" id="vibePreview4">
+                        <i class="fas fa-image"></i>
+                        <span>Пусто</span>
+                    </div>
+                    <div class="vibe-slot-actions">
+                        <input type="file" id="vibeFile4" accept="image/*" style="display: none;" onchange="uploadVibeImage(4, this)">
+                        <button class="btn btn-sm" onclick="document.getElementById('vibeFile4').click()">
+                            <i class="fas fa-upload"></i> Загрузить
+                        </button>
+                        <button class="btn btn-sm btn-danger" onclick="deleteVibeImage(4)" style="display: none;" id="vibeDelete4">
+                            <i class="fas fa-trash"></i> Удалить
+                        </button>
+                    </div>
+                </div>
+                <div class="vibe-slot" data-index="5">
+                    <div class="vibe-slot-number">5</div>
+                    <div class="vibe-slot-preview" id="vibePreview5">
+                        <i class="fas fa-image"></i>
+                        <span>Пусто</span>
+                    </div>
+                    <div class="vibe-slot-actions">
+                        <input type="file" id="vibeFile5" accept="image/*" style="display: none;" onchange="uploadVibeImage(5, this)">
+                        <button class="btn btn-sm" onclick="document.getElementById('vibeFile5').click()">
+                            <i class="fas fa-upload"></i> Загрузить
+                        </button>
+                        <button class="btn btn-sm btn-danger" onclick="deleteVibeImage(5)" style="display: none;" id="vibeDelete5">
+                            <i class="fas fa-trash"></i> Удалить
+                        </button>
+                    </div>
+                </div>
+                <div class="vibe-slot" data-index="6">
+                    <div class="vibe-slot-number">6</div>
+                    <div class="vibe-slot-preview" id="vibePreview6">
+                        <i class="fas fa-image"></i>
+                        <span>Пусто</span>
+                    </div>
+                    <div class="vibe-slot-actions">
+                        <input type="file" id="vibeFile6" accept="image/*" style="display: none;" onchange="uploadVibeImage(6, this)">
+                        <button class="btn btn-sm" onclick="document.getElementById('vibeFile6').click()">
+                            <i class="fas fa-upload"></i> Загрузить
+                        </button>
+                        <button class="btn btn-sm btn-danger" onclick="deleteVibeImage(6)" style="display: none;" id="vibeDelete6">
+                            <i class="fas fa-trash"></i> Удалить
+                        </button>
+                    </div>
+                </div>
+                <div class="vibe-slot" data-index="7">
+                    <div class="vibe-slot-number">7</div>
+                    <div class="vibe-slot-preview" id="vibePreview7">
+                        <i class="fas fa-image"></i>
+                        <span>Пусто</span>
+                    </div>
+                    <div class="vibe-slot-actions">
+                        <input type="file" id="vibeFile7" accept="image/*" style="display: none;" onchange="uploadVibeImage(7, this)">
+                        <button class="btn btn-sm" onclick="document.getElementById('vibeFile7').click()">
+                            <i class="fas fa-upload"></i> Загрузить
+                        </button>
+                        <button class="btn btn-sm btn-danger" onclick="deleteVibeImage(7)" style="display: none;" id="vibeDelete7">
+                            <i class="fas fa-trash"></i> Удалить
+                        </button>
+                    </div>
+                </div>
+                <div class="vibe-slot" data-index="8">
+                    <div class="vibe-slot-number">8</div>
+                    <div class="vibe-slot-preview" id="vibePreview8">
+                        <i class="fas fa-image"></i>
+                        <span>Пусто</span>
+                    </div>
+                    <div class="vibe-slot-actions">
+                        <input type="file" id="vibeFile8" accept="image/*" style="display: none;" onchange="uploadVibeImage(8, this)">
+                        <button class="btn btn-sm" onclick="document.getElementById('vibeFile8').click()">
+                            <i class="fas fa-upload"></i> Загрузить
+                        </button>
+                        <button class="btn btn-sm btn-danger" onclick="deleteVibeImage(8)" style="display: none;" id="vibeDelete8">
+                            <i class="fas fa-trash"></i> Удалить
+                        </button>
+                    </div>
+                </div>
+                <div class="vibe-slot" data-index="9">
+                    <div class="vibe-slot-number">9</div>
+                    <div class="vibe-slot-preview" id="vibePreview9">
+                        <i class="fas fa-image"></i>
+                        <span>Пусто</span>
+                    </div>
+                    <div class="vibe-slot-actions">
+                        <input type="file" id="vibeFile9" accept="image/*" style="display: none;" onchange="uploadVibeImage(9, this)">
+                        <button class="btn btn-sm" onclick="document.getElementById('vibeFile9').click()">
+                            <i class="fas fa-upload"></i> Загрузить
+                        </button>
+                        <button class="btn btn-sm btn-danger" onclick="deleteVibeImage(9)" style="display: none;" id="vibeDelete9">
+                            <i class="fas fa-trash"></i> Удалить
+                        </button>
+                    </div>
+                </div>
+                <div class="vibe-slot" data-index="10">
+                    <div class="vibe-slot-number">10</div>
+                    <div class="vibe-slot-preview" id="vibePreview10">
+                        <i class="fas fa-image"></i>
+                        <span>Пусто</span>
+                    </div>
+                    <div class="vibe-slot-actions">
+                        <input type="file" id="vibeFile10" accept="image/*" style="display: none;" onchange="uploadVibeImage(10, this)">
+                        <button class="btn btn-sm" onclick="document.getElementById('vibeFile10').click()">
+                            <i class="fas fa-upload"></i> Загрузить
+                        </button>
+                        <button class="btn btn-sm btn-danger" onclick="deleteVibeImage(10)" style="display: none;" id="vibeDelete10">
+                            <i class="fas fa-trash"></i> Удалить
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div class="grid" style="margin-top: 1.5rem;">
+                <button class="btn btn-primary" onclick="loadVibeImages()">
+                    <i class="fas fa-sync-alt"></i>
+                    <span>Обновить список</span>
+                </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="notification" id="notification">
+        <i class="fas fa-check-circle"></i>
+        <span id="notificationText">Команда выполнена</span>
+    </div>
+
+    <script>
+        function showNotification(text) {
+            var notification = document.getElementById('notification');
+            var notificationText = document.getElementById('notificationText');
+            notificationText.textContent = text || 'Команда выполнена';
+            notification.classList.add('show');
+            setTimeout(function() {
+                notification.classList.remove('show');
+            }, 2000);
+        }
+
+        function send(key, value) {
+            var xhr = new XMLHttpRequest();
+            xhr.open('GET', '/api/set?' + key + '=' + value, true);
+            xhr.onreadystatechange = function() {
+                if (xhr.readyState === 4 && xhr.status === 200) {
+                    showNotification('Команда отправлена');
+                }
+            };
+            xhr.send();
+        }
+
+        function sendHome(state) {
+            var xhr = new XMLHttpRequest();
+            xhr.open('GET', '/api/set?mode=smarthome&deviceState=' + state, true);
+            xhr.onreadystatechange = function() {
+                if (xhr.readyState === 4 && xhr.status === 200) {
+                    showNotification('Устройство ' + (state === 'on' ? 'включено' : 'выключено'));
+                }
+            };
+            xhr.send();
+        }
+
+        function sendAI() {
+            var text = document.getElementById('aiInput').value;
+            var xhr = new XMLHttpRequest();
+            xhr.open('GET', '/api/set?mode=text&text=' + encodeURIComponent(text), true);
+            xhr.onreadystatechange = function() {
+                if (xhr.readyState === 4 && xhr.status === 200) {
+                    showNotification('Текст отправлен');
+                }
+            };
+            xhr.send();
+        }
+
+        function sendTimer(seconds) {
+            var minutes = Math.floor(seconds / 60);
+            var xhr = new XMLHttpRequest();
+            xhr.open('GET', '/api/set?mode=timer&timerTotal=' + seconds, true);
+            xhr.onreadystatechange = function() {
+                if (xhr.readyState === 4 && xhr.status === 200) {
+                    showNotification('Таймер запущен: ' + minutes + ' мин');
+                }
+            };
+            xhr.send();
+        }
+
+        function stopTimer() {
+            var xhr = new XMLHttpRequest();
+            xhr.open('GET', '/api/set?mode=idle&timerStop=1', true);
+            xhr.onreadystatechange = function() {
+                if (xhr.readyState === 4 && xhr.status === 200) {
+                    showNotification('Таймер остановлен');
+                }
+            };
+            xhr.send();
+        }
+
+        function sendMusic(show) {
+            var title = document.getElementById('musicTitle').value;
+            var artist = document.getElementById('musicArtist').value;
+
+            var params = [];
+            params.push('mode=' + (show ? 'music' : 'idle'));
+            if (title) params.push('musicTitle=' + encodeURIComponent(title));
+            if (artist) params.push('musicArtist=' + encodeURIComponent(artist));
+            params.push('musicProgress=30');
+
+            var xhr = new XMLHttpRequest();
+            xhr.open('GET', '/api/set?' + params.join('&'), true);
+            xhr.onreadystatechange = function() {
+                if (xhr.readyState === 4 && xhr.status === 200) {
+                    showNotification(show ? 'Музыка отображается' : 'Музыка скрыта');
+                }
+            };
+            xhr.send();
+        }
+
+        // VIBE IMAGES MANAGEMENT
+        function loadVibeImages() {
+            var xhr = new XMLHttpRequest();
+            xhr.open('GET', '/api/vibe/list?r=' + Math.random(), true);
+            xhr.onreadystatechange = function() {
+                if (xhr.readyState === 4 && xhr.status === 200) {
+                    try {
+                        var data = JSON.parse(xhr.responseText);
+                        updateVibeSlots(data.images || []);
+                        showNotification('Список изображений обновлен');
+                    } catch(e) {
+                        console.error('Error loading vibe images:', e);
+                        showNotification('Ошибка загрузки списка');
+                    }
+                }
+            };
+            xhr.send();
+        }
+
+        function updateVibeSlots(images) {
+            // Создаем карту существующих изображений
+            var imageMap = {};
+            for (var i = 0; i < images.length; i++) {
+                imageMap[images[i].index] = images[i];
+            }
+
+            // Обновляем каждый слот
+            for (var slotIndex = 1; slotIndex <= 10; slotIndex++) {
+                var preview = document.getElementById('vibePreview' + slotIndex);
+                var deleteBtn = document.getElementById('vibeDelete' + slotIndex);
+                
+                if (imageMap[slotIndex]) {
+                    // Есть изображение - показываем превью
+                    var img = imageMap[slotIndex];
+                    preview.innerHTML = '<img src="' + img.url + '?r=' + Math.random() + '" alt="Image ' + slotIndex + '">';
+                    if (deleteBtn) deleteBtn.style.display = 'block';
+                } else {
+                    // Нет изображения - показываем заглушку
+                    preview.innerHTML = '<i class="fas fa-image"></i><span>Пусто</span>';
+                    if (deleteBtn) deleteBtn.style.display = 'none';
+                }
+            }
+        }
+
+        function uploadVibeImage(index, input) {
+            if (!input.files || !input.files[0]) {
+                return;
+            }
+
+            var file = input.files[0];
+            var formData = new FormData();
+            formData.append('image', file);
+            formData.append('index', index);
+
+            var xhr = new XMLHttpRequest();
+            xhr.open('POST', '/api/vibe/upload', true);
+            
+            xhr.onreadystatechange = function() {
+                if (xhr.readyState === 4) {
+                    if (xhr.status === 200) {
+                        try {
+                            var data = JSON.parse(xhr.responseText);
+                            if (data.success) {
+                                showNotification('Изображение ' + index + ' загружено');
+                                loadVibeImages(); // Обновляем список
+                            } else {
+                                showNotification('Ошибка загрузки');
+                            }
+                        } catch(e) {
+                            showNotification('Ошибка обработки ответа');
+                        }
+                    } else {
+                        showNotification('Ошибка загрузки изображения');
+                    }
+                    // Сбрасываем input
+                    input.value = '';
+                }
+            };
+            
+            xhr.send(formData);
+        }
+
+        function deleteVibeImage(index) {
+            if (!confirm('Удалить изображение ' + index + '?')) {
+                return;
+            }
+
+            var xhr = new XMLHttpRequest();
+            xhr.open('GET', '/api/vibe/delete?index=' + index, true);
+            xhr.onreadystatechange = function() {
+                if (xhr.readyState === 4 && xhr.status === 200) {
+                    try {
+                        var data = JSON.parse(xhr.responseText);
+                        if (data.success) {
+                            showNotification('Изображение ' + index + ' удалено');
+                            loadVibeImages(); // Обновляем список
+                        } else {
+                            showNotification('Ошибка удаления');
+                        }
+                    } catch(e) {
+                        showNotification('Ошибка обработки ответа');
+                    }
+                }
+            };
+            xhr.send();
+        }
+
+        // Загружаем список при загрузке страницы
+        window.addEventListener('load', function() {
+            loadVibeImages();
+            initAdminPanel();
+        });
+
+        // --- ADMIN PANEL FUNCTIONS ---
+        function toggleSection(header) {
+            var section = header.closest('.section');
+            var content = section.querySelector('.section-content');
+            header.classList.toggle('collapsed');
+            content.classList.toggle('collapsed');
+        }
+
+        // --- DEVICE MANAGEMENT ---
+        var devicesUpdateInterval = null;
+        var heartbeatInterval = null;
+
+        function initAdminPanel() {
+            // Отправляем heartbeat при загрузке
+            sendHeartbeat();
+            
+            // Запускаем heartbeat каждые 3 секунды
+            heartbeatInterval = setInterval(sendHeartbeat, 3000);
+            
+            // Загружаем устройства
+            loadDevices();
+            
+            // Обновляем устройства каждые 2 секунды
+            devicesUpdateInterval = setInterval(loadDevices, 2000);
+            
+            // Отправляем heartbeat при закрытии страницы
+            window.addEventListener('beforeunload', function() {
+                if (heartbeatInterval) {
+                    clearInterval(heartbeatInterval);
+                }
+            });
+        }
+
+        function sendHeartbeat() {
+            var xhr = new XMLHttpRequest();
+            xhr.open('GET', '/api/admin/heartbeat?r=' + Math.random(), true);
+            xhr.send();
+        }
+
+        function loadDevices() {
+            var xhr = new XMLHttpRequest();
+            xhr.open('GET', '/api/devices?r=' + Math.random(), true);
+            xhr.onreadystatechange = function() {
+                if (xhr.readyState === 4 && xhr.status === 200) {
+                    try {
+                        var data = JSON.parse(xhr.responseText);
+                        renderDevices(data.devices || []);
+                    } catch(e) {
+                        console.error('Error loading devices:', e);
+                    }
+                }
+            };
+            xhr.send();
+        }
+
+        function renderDevices(devices) {
+            var container = document.getElementById('devicesContainer');
+            if (!container) return;
+
+            if (devices.length === 0) {
+                container.innerHTML = '<div class="device-placeholder">Нет подключенных устройств</div>';
+                return;
+            }
+
+            var html = '';
+            for (var i = 0; i < devices.length; i++) {
+                var device = devices[i];
+                var statusClass = device.isOnline ? 'online' : 'offline';
+                var statusText = device.isOnline ? 'Онлайн' : 'Оффлайн';
+                var batteryText = device.battery !== null ? device.battery + '%' : '--';
+                var batteryIcon = device.charging ? 'fa-bolt' : 'fa-battery-three-quarters';
+                var lockIcon = device.locked ? 'fa-lock' : 'fa-unlock';
+                var lockText = device.locked ? 'Разблокировать' : 'Заблокировать';
+                var lockClass = device.locked ? 'btn-danger' : 'btn-success';
+
+                html += '<div class="device-card ' + statusClass + '">';
+                html += '  <div class="device-header">';
+                html += '    <div class="device-image">';
+                html += '      <img src="/umaai.png" onload="this.nextElementSibling.style.display=\'none\'" onerror="this.style.display=\'none\'; this.nextElementSibling.style.display=\'flex\';">';
+                html += '      <i class="fas fa-mobile-alt" style="display:flex;"></i>';
+                html += '    </div>';
+                html += '    <div class="device-info">';
+                html += '      <div class="device-name">' + escapeHtml(device.name || device.ip) + '</div>';
+                html += '      <div class="device-status ' + statusClass + '">';
+                html += '        <span class="status-indicator"></span>';
+                html += '        ' + statusText;
+                html += '      </div>';
+                html += '      <div class="device-battery">';
+                html += '        <i class="fas ' + batteryIcon + '"></i>';
+                html += '        ' + batteryText;
+                html += '      </div>';
+                html += '    </div>';
+                html += '  </div>';
+                html += '  <div class="device-actions">';
+                html += '    <button class="btn ' + lockClass + '" onclick="toggleDeviceLock(\'' + escapeHtml(device.ip) + '\', ' + !device.locked + ')">';
+                html += '      <i class="fas ' + lockIcon + '"></i>';
+                html += '      <span>' + lockText + '</span>';
+                html += '    </button>';
+                html += '    <button class="btn" onclick="sendToDevice(\'' + escapeHtml(device.ip) + '\', \'emotion\', \'blink\')" title="Моргнуть">';
+                html += '      <i class="fas fa-eye"></i>';
+                html += '    </button>';
+                html += '    <button class="btn" onclick="sendToDevice(\'' + escapeHtml(device.ip) + '\', \'emotion\', \'wink\')" title="Подмигнуть">';
+                html += '      <i class="fas fa-smile-wink"></i>';
+                html += '    </button>';
+                html += '    <button class="btn" onclick="sendToDevice(\'' + escapeHtml(device.ip) + '\', \'mode\', \'idle\')" title="Главный">';
+                html += '      <i class="fas fa-user-circle"></i>';
+                html += '    </button>';
+                html += '    <button class="btn" onclick="sendToDevice(\'' + escapeHtml(device.ip) + '\', \'mode\', \'weather\')" title="Погода">';
+                html += '      <i class="fas fa-cloud-sun"></i>';
+                html += '    </button>';
+                html += '  </div>';
+                html += '</div>';
+            }
+            container.innerHTML = html;
+        }
+
+        function toggleDeviceLock(deviceIp, lock) {
+            var xhr = new XMLHttpRequest();
+            xhr.open('GET', '/api/device/lock?ip=' + encodeURIComponent(deviceIp) + '&lock=' + lock, true);
+            xhr.onreadystatechange = function() {
+                if (xhr.readyState === 4 && xhr.status === 200) {
+                    showNotification(lock ? 'Устройство заблокировано' : 'Устройство разблокировано');
+                    loadDevices();
+                }
+            };
+            xhr.send();
+        }
+
+        function sendToDevice(deviceIp, key, value) {
+            // Отправляем команду на сервер (сервер применит её ко всем устройствам или конкретному)
+            send(key, value);
+        }
+
+        function escapeHtml(text) {
+            var div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+    </script>
+</body>
+</html>
