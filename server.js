@@ -168,6 +168,53 @@ async function sendSmartThingsCommand(deviceId, command) {
     await httpsRequestJson('POST', 'https://api.smartthings.com/v1/devices/' + deviceId + '/commands', headers, payload);
 }
 
+function getSmartThingDisplayName(deviceId) {
+    const devices = (globalState.smartThings && globalState.smartThings.devices) || [];
+    for (const d of devices) {
+        if (d && d.id === deviceId) return d.name || d.id;
+    }
+    return deviceId;
+}
+
+function getSwitchableSmartThingsDevices() {
+    const devices = (globalState.smartThings && globalState.smartThings.devices) || [];
+    return devices.filter((d) => d && d.id && d.capability === 'switch');
+}
+
+async function applySmartHomeCommand(deviceId, status) {
+    const normalizedStatus = status === 'on' ? 'on' : 'off';
+
+    if (deviceId === 'all') {
+        const targets = getSwitchableSmartThingsDevices();
+        globalState.smartHome = {
+            device: 'Все устройства',
+            status: normalizedStatus,
+            icon: normalizedStatus === 'on' ? '⚡' : '○'
+        };
+        globalState.mode = 'smarthome';
+
+        if (runtimeConfig.smartthingsToken && targets.length) {
+            const requests = targets.map((d) => sendSmartThingsCommand(d.id, normalizedStatus));
+            await Promise.allSettled(requests);
+            await fetchSmartThingsDevices();
+        }
+        return;
+    }
+
+    globalState.smartHome = {
+        device: getSmartThingDisplayName(deviceId),
+        deviceId: deviceId,
+        status: normalizedStatus,
+        icon: normalizedStatus === 'on' ? '⚡' : '○'
+    };
+    globalState.mode = 'smarthome';
+
+    if (runtimeConfig.smartthingsToken) {
+        await sendSmartThingsCommand(deviceId, normalizedStatus);
+        await fetchSmartThingsDevices();
+    }
+}
+
 async function updateRadioMetadata() {
     const stream = runtimeConfig.musicStreamUrl;
     if (!stream) return;
@@ -1167,12 +1214,8 @@ function applyCommands(commands) {
                 const parts = cmd.param.split(/\s+/);
                 if (parts.length >= 2) {
                     const device = parts[0];
-                    const status = parts[1];
-                    globalState.smartHome = { device: device, status: status };
-                    globalState.mode = 'smarthome';
-                    if (runtimeConfig.smartthingsToken && (status === 'on' || status === 'off')) {
-                        sendSmartThingsCommand(device, status === 'on' ? 'on' : 'off').then(() => fetchSmartThingsDevices()).catch(() => {});
-                    }
+                    const status = parts[1] === 'on' ? 'on' : 'off';
+                    applySmartHomeCommand(device, status).catch(() => {});
                 }
                 break;
                 
@@ -1241,6 +1284,7 @@ async function processAudioWithGemini(audioBuffer) {
 
 1. Таймер: {TIMER: секунды} 
    Пример: "Засекаю время на X минут." {TIMER: 120} (для 2 минут)
+   ВАЖНО: считай только в секундах. 1 минута = 60, 2 минуты = 120, 5 минут = 300, 15 минут = 900.
 
 2. Ночные часы: {CLOCK}
    Пример: "Спокойной ночи." {CLOCK}
@@ -1251,6 +1295,7 @@ async function processAudioWithGemini(audioBuffer) {
 4. Умный дом: {HOME: устройство состояние}
    Пример: "Включаю свет X." {HOME: lamp on}
    Пример: "Вырубаю X." {HOME: lamp off}
+   Пример для всех устройств: {HOME: all off} или {HOME: all on}
 
 5. Музыка: {MUSIC: трек | исполнитель} исполнитель обязательно пиши
    Пример: "Врубаю басы." {MUSIC: Numb | Linkin Park}
@@ -1274,7 +1319,8 @@ async function processAudioWithGemini(audioBuffer) {
 Распознай речь в этом аудио и ответь согласно правилам выше.
 
 Доступные устройства SmartThings: ${JSON.stringify((globalState.smartThings && globalState.smartThings.devices) || [])}.
-Если просят включить/выключить устройство, используй {HOME: id on/off}, где id это id устройства.`;
+Если просят включить/выключить устройство, используй {HOME: id on/off}, где id это id устройства.
+Если просят включить/выключить все устройства, используй {HOME: all on/off}.`;
         
         // Отправляем запрос в Gemini с аудио
         const result = await model.generateContent([
