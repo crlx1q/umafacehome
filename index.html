@@ -572,6 +572,37 @@
             width: 30%;
             background: #ffffff;
         }
+        .music-controls {
+            margin-top: 8px;
+            display: -webkit-box;
+            display: -moz-box;
+            display: -webkit-flex;
+            display: -moz-flex;
+            display: flex;
+            -webkit-box-align: center;
+            -moz-box-align: center;
+            -webkit-align-items: center;
+            -moz-align-items: center;
+            align-items: center;
+        }
+        .music-control-btn {
+            min-width: 54px;
+            height: 32px;
+            padding: 0 10px;
+            margin-right: 8px;
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.45);
+            color: #ffffff;
+            font-size: 14px;
+            font-family: 'Courier New', Courier, monospace;
+            -webkit-border-radius: 6px;
+            -moz-border-radius: 6px;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+        .music-control-btn:active {
+            background: rgba(255, 255, 255, 0.2);
+        }
 
         /* Анимация "дворники" для лица в режиме музыки */
         .face-container.dance {
@@ -900,11 +931,21 @@
             width: 32px;
             height: 32px;
             background: transparent;
-            border: none;
+            border: 1px solid rgba(255, 255, 255, 0.45);
+            -webkit-border-radius: 6px;
+            -moz-border-radius: 6px;
+            border-radius: 6px;
             color: #ffffff;
             font-size: 18px;
             cursor: pointer;
             margin: 0 4px;
+            text-align: center;
+            line-height: 30px;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+        .vibe-control-btn:active {
+            background: rgba(255, 255, 255, 0.18);
         }
 
         /* --- BOOT --- */
@@ -1011,6 +1052,10 @@
                 <div class="music-progress">
                     <div class="music-progress-fill" id="musicProgressFill"></div>
                 </div>
+                <div class="music-controls" id="musicControls">
+                    <button class="music-control-btn" id="musicPlayBtn" type="button">PLAY</button>
+                    <button class="music-control-btn" id="musicPauseBtn" type="button">PAUSE</button>
+                </div>
             </div>
         </div>
         <audio id="musicStreamPlayer" preload="none" style="display:none;"></audio>
@@ -1051,9 +1096,9 @@
                     <div class="vibe-music-artist" id="vibeMusicArtist">---</div>
                 </div>
                 <div class="vibe-music-controls">
-                    <span class="vibe-control-btn">&lt;</span>
-                    <span class="vibe-control-btn">||</span>
-                    <span class="vibe-control-btn">&gt;</span>
+                    <button class="vibe-control-btn" id="vibePrevBtn" type="button">&lt;</button>
+                    <button class="vibe-control-btn" id="vibePlayPauseBtn" type="button">PLAY</button>
+                    <button class="vibe-control-btn" id="vibeNextBtn" type="button">&gt;</button>
                 </div>
             </div>
         </div>
@@ -1184,6 +1229,8 @@
         var elMusicTitle = document.getElementById('musicTitle');
         var elMusicArtist = document.getElementById('musicArtist');
         var elMusicProgressFill = document.getElementById('musicProgressFill');
+        var elMusicPlayBtn = document.getElementById('musicPlayBtn');
+        var elMusicPauseBtn = document.getElementById('musicPauseBtn');
         var musicStreamPlayer = document.getElementById('musicStreamPlayer');
         var musicAutoplayUnlocked = false;
         var elBootBar = document.getElementById('bootBar');
@@ -1199,6 +1246,9 @@
         var elVibeIndicator = document.getElementById('vibeIndicator');
         var elVibeMusicTitle = document.getElementById('vibeMusicTitle');
         var elVibeMusicArtist = document.getElementById('vibeMusicArtist');
+        var elVibePlayPauseBtn = document.getElementById('vibePlayPauseBtn');
+        var elVibePrevBtn = document.getElementById('vibePrevBtn');
+        var elVibeNextBtn = document.getElementById('vibeNextBtn');
         var elVibeImagesContainer = document.getElementById('vibeImagesContainer');
 
         // --- СОСТОЯНИЕ ---
@@ -1246,6 +1296,61 @@
                     })['catch'](function() {});
                 }
             } catch (e) {}
+        }
+
+        function setMusicButtonsState(isPlaying) {
+            if (elVibePlayPauseBtn) {
+                setElementText(elVibePlayPauseBtn, isPlaying ? 'PAUSE' : 'PLAY');
+            }
+            if (elMusicPlayBtn) {
+                elMusicPlayBtn.disabled = !!isPlaying;
+            }
+            if (elMusicPauseBtn) {
+                elMusicPauseBtn.disabled = !isPlaying;
+            }
+        }
+
+        function safePlayAudioElement(audioEl) {
+            if (!audioEl || !audioEl.play) return;
+            try {
+                var playResult = audioEl.play();
+                if (playResult && playResult['catch']) {
+                    playResult['catch'](function() {});
+                }
+            } catch (e) {}
+        }
+
+        function startMusicStreamPlayback() {
+            if (!musicStreamPlayer) return;
+            unlockMusicAutoplay();
+            safePlayAudioElement(musicStreamPlayer);
+            setMusicButtonsState(true);
+        }
+
+        function pauseMusicStreamPlayback() {
+            if (!musicStreamPlayer || !musicStreamPlayer.pause) return;
+            try {
+                musicStreamPlayer.pause();
+            } catch (e) {}
+            setMusicButtonsState(false);
+        }
+
+        function stopMusicStreamPlayback() {
+            pauseMusicStreamPlayback();
+            if (!musicStreamPlayer) return;
+            try {
+                musicStreamPlayer.removeAttribute('src');
+                if (musicStreamPlayer.load) musicStreamPlayer.load();
+            } catch (e) {}
+        }
+
+        function toggleMusicStreamPlayback() {
+            if (!musicStreamPlayer) return;
+            if (musicStreamPlayer.paused) {
+                startMusicStreamPlayback();
+            } else {
+                pauseMusicStreamPlayback();
+            }
         }
         
         // Vibe (фоторамка)
@@ -1521,10 +1626,12 @@
             var emotion = (data && data.emotion) ? data.emotion : 'normal';
             if (emotion === 'listening') {
                 hideAllWidgets();
+                stopMusicStreamPlayback();
                 subs.innerText = "Слушаю...";
                 return;
             } else if (emotion === 'thinking') {
                 hideAllWidgets();
+                stopMusicStreamPlayback();
                 subs.innerText = "Думаю...";
                 return;
             }
@@ -1542,6 +1649,9 @@
             clearTimerVisualization();
 
             hideAllWidgets();
+            if (mode !== 'music' && mode !== 'vibe') {
+                stopMusicStreamPlayback();
+            }
 
             if (mode === 'idle') {
                 subs.innerText = "";
@@ -1952,10 +2062,12 @@
                     musicStreamPlayer.src = music.streamUrl;
                     if (musicStreamPlayer.load) musicStreamPlayer.load();
                 }
-                if (musicStreamPlayer.paused && musicStreamPlayer.play) {
-                    unlockMusicAutoplay();
-                    musicStreamPlayer.play()['catch'](function(){});
+                if (musicStreamPlayer.paused) {
+                    startMusicStreamPlayback();
                 }
+            }
+            if (musicStreamPlayer) {
+                setMusicButtonsState(!musicStreamPlayer.paused);
             }
         }
 
@@ -2227,6 +2339,46 @@
                 showVibeImage(vibeCurrentIndex - 1);
             }
         }
+
+        function initMusicControls() {
+            if (elMusicPlayBtn) {
+                elMusicPlayBtn.addEventListener('click', function(e) {
+                    if (e && e.stopPropagation) e.stopPropagation();
+                    startMusicStreamPlayback();
+                });
+            }
+            if (elMusicPauseBtn) {
+                elMusicPauseBtn.addEventListener('click', function(e) {
+                    if (e && e.stopPropagation) e.stopPropagation();
+                    pauseMusicStreamPlayback();
+                });
+            }
+            if (elVibePlayPauseBtn) {
+                elVibePlayPauseBtn.addEventListener('click', function(e) {
+                    if (e && e.stopPropagation) e.stopPropagation();
+                    toggleMusicStreamPlayback();
+                });
+            }
+            if (elVibePrevBtn) {
+                elVibePrevBtn.addEventListener('click', function(e) {
+                    if (e && e.stopPropagation) e.stopPropagation();
+                    vibePrevImage();
+                });
+            }
+            if (elVibeNextBtn) {
+                elVibeNextBtn.addEventListener('click', function(e) {
+                    if (e && e.stopPropagation) e.stopPropagation();
+                    vibeNextImage();
+                });
+            }
+
+            if (musicStreamPlayer) {
+                musicStreamPlayer.addEventListener('play', function() { setMusicButtonsState(true); });
+                musicStreamPlayer.addEventListener('pause', function() { setMusicButtonsState(false); });
+                musicStreamPlayer.addEventListener('ended', function() { setMusicButtonsState(false); });
+            }
+            setMusicButtonsState(false);
+        }
         
         // Обновление музыки в vibe режиме
         function updateVibeMusic(music) {
@@ -2238,6 +2390,7 @@
         function startBootAnimation() {
             isBooting = true;
             hideAllWidgets();
+            stopMusicStreamPlayback();
             widgetsLayer.classList.add('active');
             wBoot.classList.add('active');
             // Прячем лицо на время загрузки
@@ -2337,6 +2490,7 @@
         window.addEventListener('load', function() {
             // Настраиваем обработчики полноэкранного режима
             setupFullscreenListeners();
+            initMusicControls();
             
             startBootAnimation();
             // pollServer запускается сразу, но запросы игнорируются,
@@ -2551,6 +2705,7 @@
                 }
                 if (clickedFace) {
                     // Клик по лицу - возврат на главный экран
+                    stopMusicStreamPlayback();
                     var xhr = new XMLHttpRequest();
                     xhr.open('GET', '/api/set?mode=idle', true);
                     xhr.send();
@@ -2618,6 +2773,7 @@
             currentEmotion = 'listening'; // Обновляем кэш
             face.className = 'face-container listening';
             hideAllWidgets();
+            stopMusicStreamPlayback();
             subs.innerText = "Слушаю...";
             
             startVoiceRecording();
@@ -2754,6 +2910,7 @@
             currentEmotion = 'thinking'; // Обновляем кэш
             setFaceByModeAndEmotion('idle', 'thinking');
             hideAllWidgets();
+            stopMusicStreamPlayback();
             subs.innerText = "Думаю...";
             
             // Если использовали MediaRecorder, отправляем blob напрямую
@@ -2907,6 +3064,7 @@
             face.className = 'face-container dizzy';
             subs.innerText = "Уууу, голова кружится...";
             hideAllWidgets();
+            stopMusicStreamPlayback();
 
             setTimeout(function () {
                 isLocalAnim = false;
@@ -2943,6 +3101,7 @@
                     currentEmotion = 'sad'; // Обновляем кэш
                     face.className = 'face-container sad'; 
                     hideAllWidgets();
+                    stopMusicStreamPlayback();
                     subs.innerText = "Нет связи...";
                 }
             }
