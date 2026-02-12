@@ -16,22 +16,31 @@ const WEATHER_API_KEY = '4cd5683e0f0deab9f076f289b65e6d53';
 const WEATHER_CITY = 'Kokshetau';
 const WEATHER_UPDATE_INTERVAL = 30 * 60 * 1000; // 30 минут
 
-// Gemini API ключ - можно установить здесь напрямую или через переменную окружения
-// Для продакшена лучше использовать переменную окружения!
-const GEMINI_API_KEY_HARDCODED = 'AIzaSyBgMpe_7Jja3k3teJyC9CC3Y8o6BLVSFo8'; // Ваш ключ
-const GEMINI_API_KEY = GEMINI_API_KEY_HARDCODED || process.env.GEMINI_API_KEY || '';
+const CONFIG_FILE = path.join(__dirname, 'runtime-config.json');
+
+let runtimeConfig = {
+    geminiApiKey: process.env.GEMINI_API_KEY || '',
+    geminiModel: 'gemini-2.5-flash-lite',
+    smartthingsToken: process.env.SMARTTHINGS_TOKEN || '',
+    musicStreamUrl: 'https://cast.joystream.nl:80/radio538',
+    musicStationName: 'Internet Radio'
+};
+
 let genAI = null;
 
-if (GEMINI_API_KEY) {
+function initGeminiClient() {
+    const key = runtimeConfig.geminiApiKey;
+    if (!key) {
+        genAI = null;
+        return;
+    }
     try {
-        genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
+        genAI = new GoogleGenerativeAI(key);
         console.log('✓ Gemini API ключ загружен');
     } catch (error) {
+        genAI = null;
         console.error('✗ Ошибка инициализации Gemini API:', error.message);
     }
-} else {
-    console.warn('⚠ GEMINI_API_KEY не установлен. Голосовой ввод не будет работать.');
-    console.warn('   Установите: $env:GEMINI_API_KEY="ваш_ключ" (PowerShell) или set GEMINI_API_KEY=ваш_ключ (CMD)');
 }
 
 // --- ХРАНИЛИЩЕ СОСТОЯНИЯ (В ОЗУ) ---
@@ -49,11 +58,12 @@ let globalState = {
     // Таймер (total/left в секундах)
     timer: { total: 0, left: 0 },
     // Музыка (отображение обложки/названия)
-    music: { title: '', artist: '', progressPercent: 0 },
+    music: { title: '', artist: '', progressPercent: 0, streamUrl: '' },
     // Vibe (фоторамка) - текущее изображение
     vibe: { currentImage: 1 },
     // Блокировка устройств
     deviceLocked: false,
+    smartThings: { devices: [] },
     
     lastUpdate: Date.now()
 };
@@ -81,6 +91,127 @@ function cleanupInactiveDevices() {
         }
     }
 }
+
+function loadRuntimeConfig() {
+    if (!fs.existsSync(CONFIG_FILE)) return;
+    try {
+        const data = JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf8'));
+        runtimeConfig = Object.assign(runtimeConfig, data || {});
+    } catch (error) {
+        console.error('✗ Ошибка загрузки runtime-config.json:', error.message);
+    }
+}
+
+function saveRuntimeConfig() {
+    fs.writeFileSync(CONFIG_FILE, JSON.stringify(runtimeConfig, null, 2), 'utf8');
+}
+
+function sendJson(res, code, payload) {
+    res.writeHead(code, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+    res.end(JSON.stringify(payload));
+}
+
+function httpsRequestJson(method, requestUrl, headers, body) {
+    return new Promise((resolve, reject) => {
+        const options = new URL(requestUrl);
+        options.method = method;
+        options.headers = headers || {};
+        const req = https.request(options, (resp) => {
+            let data = '';
+            resp.on('data', (chunk) => data += chunk);
+            resp.on('end', () => {
+                try {
+                    const parsed = data ? JSON.parse(data) : {};
+                    if (resp.statusCode >= 200 && resp.statusCode < 300) resolve(parsed);
+                    else reject(new Error((parsed.message || parsed.error || data || 'HTTP ' + resp.statusCode).toString()));
+                } catch (e) {
+                    if (resp.statusCode >= 200 && resp.statusCode < 300) resolve({ raw: data });
+                    else reject(new Error(data || 'HTTP ' + resp.statusCode));
+                }
+            });
+        });
+        req.on('error', reject);
+        if (body) req.write(body);
+        req.end();
+    });
+}
+
+async function fetchSmartThingsDevices() {
+    if (!runtimeConfig.smartthingsToken) return [];
+    const headers = { Authorization: 'Bearer ' + runtimeConfig.smartthingsToken };
+    const list = await httpsRequestJson('GET', 'https://api.smartthings.com/v1/devices', headers);
+    const items = (list.items || []).slice(0, 20);
+    const result = [];
+    for (const d of items) {
+        try {
+            const st = await httpsRequestJson('GET', 'https://api.smartthings.com/v1/devices/' + d.deviceId + '/status', headers);
+            const sw = st.components && st.components.main && st.components.main.switch && st.components.main.switch.switch && st.components.main.switch.switch.value;
+            result.push({
+                id: d.deviceId,
+                name: d.label || d.name,
+                status: sw === 'on' ? 'on' : 'off',
+                capability: sw ? 'switch' : 'status',
+                raw: st.components && st.components.main ? st.components.main : {}
+            });
+        } catch (e) {
+            result.push({ id: d.deviceId, name: d.label || d.name, status: 'unknown', capability: 'status', raw: {} });
+        }
+    }
+    globalState.smartThings = { devices: result };
+    globalState.smartHome = { devices: result };
+    return result;
+}
+
+async function sendSmartThingsCommand(deviceId, command) {
+    const headers = { Authorization: 'Bearer ' + runtimeConfig.smartthingsToken, 'Content-Type': 'application/json' };
+    const payload = JSON.stringify({ commands: [{ component: 'main', capability: 'switch', command: command, arguments: [] }] });
+    await httpsRequestJson('POST', 'https://api.smartthings.com/v1/devices/' + deviceId + '/commands', headers, payload);
+}
+
+async function updateRadioMetadata() {
+    const stream = runtimeConfig.musicStreamUrl;
+    if (!stream) return;
+    const req = https.request(stream, { headers: { 'Icy-MetaData': '1', 'User-Agent': 'UmaAI/1.0' } }, (resp) => {
+        const metaint = parseInt(resp.headers['icy-metaint'], 10);
+        if (!metaint || !resp.headers['content-type']) { resp.destroy(); return; }
+        let total = 0;
+        let metadataLen = -1;
+        let meta = Buffer.alloc(0);
+        resp.on('data', (chunk) => {
+            for (let i=0;i<chunk.length;i++) {
+                total++;
+                if (metadataLen < 0 && total === metaint + 1) {
+                    metadataLen = chunk[i] * 16;
+                    continue;
+                }
+                if (metadataLen >= 0 && meta.length < metadataLen) {
+                    meta = Buffer.concat([meta, Buffer.from([chunk[i]])]);
+                    if (meta.length >= metadataLen) {
+                        const str = meta.toString('utf8').replace(/\0/g, '');
+                        const m = str.match(/StreamTitle='([^']*)'/);
+                        if (m && m[1]) {
+                            const parts = m[1].split(' - ');
+                            globalState.music.title = parts[1] || parts[0];
+                            globalState.music.artist = parts[1] ? parts[0] : runtimeConfig.musicStationName;
+                            globalState.music.streamUrl = runtimeConfig.musicStreamUrl;
+                            globalState.music.progressPercent = 30;
+                            globalState.lastUpdate = Date.now();
+                        }
+                        resp.destroy();
+                        return;
+                    }
+                }
+            }
+        });
+    });
+    req.on('error', () => {});
+    req.end();
+}
+
+loadRuntimeConfig();
+initGeminiClient();
+setInterval(() => { updateRadioMetadata(); }, 45000);
+updateRadioMetadata();
 
 // --- ФУНКЦИЯ ОБНОВЛЕНИЯ ПОГОДЫ ---
 function updateWeather() {
@@ -320,6 +451,60 @@ const server = http.createServer((req, res) => {
         servePhotoFile(res, pathname);
     }
 
+    // 5.6 Runtime config
+    else if (pathname === '/api/config' && req.method === 'GET') {
+        sendJson(res, 200, runtimeConfig);
+    }
+    else if (pathname === '/api/config' && req.method === 'POST') {
+        const chunks = [];
+        req.on('data', (c) => chunks.push(c));
+        req.on('end', () => {
+            try {
+                const payload = JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}');
+                runtimeConfig.geminiApiKey = (payload.geminiApiKey || runtimeConfig.geminiApiKey || '').trim();
+                runtimeConfig.geminiModel = (payload.geminiModel || runtimeConfig.geminiModel || 'gemini-2.5-flash-lite').trim();
+                runtimeConfig.smartthingsToken = (payload.smartthingsToken || runtimeConfig.smartthingsToken || '').trim();
+                runtimeConfig.musicStreamUrl = (payload.musicStreamUrl || runtimeConfig.musicStreamUrl || '').trim();
+                runtimeConfig.musicStationName = (payload.musicStationName || runtimeConfig.musicStationName || 'Internet Radio').trim();
+                saveRuntimeConfig();
+                initGeminiClient();
+                sendJson(res, 200, { success: true, config: runtimeConfig });
+            } catch (error) {
+                sendJson(res, 400, { error: error.message });
+            }
+        });
+    }
+    else if (pathname === '/api/gemini/models' && req.method === 'GET') {
+        const key = runtimeConfig.geminiApiKey;
+        if (!key) { sendJson(res, 400, { error: 'Gemini API key is empty' }); return; }
+        httpsRequestJson('GET', 'https://generativelanguage.googleapis.com/v1beta/models?key=' + encodeURIComponent(key), {}, null)
+            .then((data) => {
+                const models = (data.models || []).map((m) => m.name.replace('models/', '')).filter((n) => n.indexOf('gemini') !== -1);
+                sendJson(res, 200, { models: models });
+            })
+            .catch((error) => sendJson(res, 500, { error: error.message }));
+    }
+    else if (pathname === '/api/smartthings/devices' && req.method === 'GET') {
+        fetchSmartThingsDevices().then((devices) => sendJson(res, 200, { devices: devices })).catch((error) => sendJson(res, 500, { error: error.message }));
+    }
+    else if (pathname === '/api/smartthings/device/control' && req.method === 'POST') {
+        const chunks = [];
+        req.on('data', (c) => chunks.push(c));
+        req.on('end', () => {
+            try {
+                const payload = JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}');
+                const deviceId = payload.deviceId;
+                const command = payload.command === 'off' ? 'off' : 'on';
+                sendSmartThingsCommand(deviceId, command)
+                    .then(() => fetchSmartThingsDevices())
+                    .then(() => sendJson(res, 200, { success: true }))
+                    .catch((error) => sendJson(res, 500, { error: error.message }));
+            } catch (error) {
+                sendJson(res, 400, { error: error.message });
+            }
+        });
+    }
+
     // 6. API для АДМИНКИ
     else if (pathname === '/api/set') {
         const query = parsedUrl.query;
@@ -349,6 +534,8 @@ const server = http.createServer((req, res) => {
             if (!globalState.music) globalState.music = { title: '', artist: '', progressPercent: 0 };
             if (query.musicTitle) globalState.music.title = query.musicTitle;
             if (query.musicArtist) globalState.music.artist = query.musicArtist;
+            if (query.musicStreamUrl) runtimeConfig.musicStreamUrl = query.musicStreamUrl;
+            globalState.music.streamUrl = runtimeConfig.musicStreamUrl;
             if (typeof query.musicProgress !== 'undefined') {
                 let p = parseInt(query.musicProgress, 10);
                 if (isNaN(p)) p = 0;
@@ -977,18 +1164,15 @@ function applyCommands(commands) {
                 break;
                 
             case 'HOME':
-                // Формат: {HOME: устройство состояние}
-                // Пример: {HOME: lamp on} или {HOME: lamp off}
                 const parts = cmd.param.split(/\s+/);
                 if (parts.length >= 2) {
                     const device = parts[0];
                     const status = parts[1];
                     globalState.smartHome = { device: device, status: status };
                     globalState.mode = 'smarthome';
-                } else if (parts.length === 1) {
-                    // Если только одно слово, считаем это статусом
-                    globalState.smartHome.status = parts[0];
-                    globalState.mode = 'smarthome';
+                    if (runtimeConfig.smartthingsToken && (status === 'on' || status === 'off')) {
+                        sendSmartThingsCommand(device, status === 'on' ? 'on' : 'off').then(() => fetchSmartThingsDevices()).catch(() => {});
+                    }
                 }
                 break;
                 
@@ -1031,7 +1215,7 @@ async function processAudioWithGemini(audioBuffer) {
     
     try {
         // Используем Gemini 2.5 Flash Lite - оптимизирована для скорости и экономичности
-        const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash-lite' });
+        const model = genAI.getGenerativeModel({ model: runtimeConfig.geminiModel || 'gemini-2.5-flash-lite' });
         
         // Конвертируем аудио в base64
         const audioBase64 = audioBuffer.toString('base64');
@@ -1087,7 +1271,10 @@ async function processAudioWithGemini(audioBuffer) {
 - Если команды нет, просто отвечай текстом.
 - Команды автоматически удаляются из отображаемого текста, но они должны быть в твоем ответе для выполнения действий.
 
-Распознай речь в этом аудио и ответь согласно правилам выше.`;
+Распознай речь в этом аудио и ответь согласно правилам выше.
+
+Доступные устройства SmartThings: ${JSON.stringify((globalState.smartThings && globalState.smartThings.devices) || [])}.
+Если просят включить/выключить устройство, используй {HOME: id on/off}, где id это id устройства.`;
         
         // Отправляем запрос в Gemini с аудио
         const result = await model.generateContent([
@@ -1131,8 +1318,8 @@ server.listen(PORT, () => {
     console.log(`Пульт:     http://${getLocalIp()}:${PORT}/admin`);
     
     // Проверка API ключа
-    if (GEMINI_API_KEY && GEMINI_API_KEY.trim().length > 0) {
-        console.log(`✓ Gemini API ключ установлен (${GEMINI_API_KEY.substring(0, 10)}...)`);
+    if (runtimeConfig.geminiApiKey && runtimeConfig.geminiApiKey.trim().length > 0) {
+        console.log(`✓ Gemini API ключ установлен (${runtimeConfig.geminiApiKey.substring(0, 10)}...)`);
     } else {
         console.log(`⚠ Gemini API ключ НЕ установлен!`);
         console.log(`   Для работы голосового ввода установите:`);
@@ -1359,6 +1546,60 @@ const serverLocalhost = http.createServer((req, res) => {
         res.end(JSON.stringify({ success: true }));
     }
 
+    // 5.6 Runtime config
+    else if (pathname === '/api/config' && req.method === 'GET') {
+        sendJson(res, 200, runtimeConfig);
+    }
+    else if (pathname === '/api/config' && req.method === 'POST') {
+        const chunks = [];
+        req.on('data', (c) => chunks.push(c));
+        req.on('end', () => {
+            try {
+                const payload = JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}');
+                runtimeConfig.geminiApiKey = (payload.geminiApiKey || runtimeConfig.geminiApiKey || '').trim();
+                runtimeConfig.geminiModel = (payload.geminiModel || runtimeConfig.geminiModel || 'gemini-2.5-flash-lite').trim();
+                runtimeConfig.smartthingsToken = (payload.smartthingsToken || runtimeConfig.smartthingsToken || '').trim();
+                runtimeConfig.musicStreamUrl = (payload.musicStreamUrl || runtimeConfig.musicStreamUrl || '').trim();
+                runtimeConfig.musicStationName = (payload.musicStationName || runtimeConfig.musicStationName || 'Internet Radio').trim();
+                saveRuntimeConfig();
+                initGeminiClient();
+                sendJson(res, 200, { success: true, config: runtimeConfig });
+            } catch (error) {
+                sendJson(res, 400, { error: error.message });
+            }
+        });
+    }
+    else if (pathname === '/api/gemini/models' && req.method === 'GET') {
+        const key = runtimeConfig.geminiApiKey;
+        if (!key) { sendJson(res, 400, { error: 'Gemini API key is empty' }); return; }
+        httpsRequestJson('GET', 'https://generativelanguage.googleapis.com/v1beta/models?key=' + encodeURIComponent(key), {}, null)
+            .then((data) => {
+                const models = (data.models || []).map((m) => m.name.replace('models/', '')).filter((n) => n.indexOf('gemini') !== -1);
+                sendJson(res, 200, { models: models });
+            })
+            .catch((error) => sendJson(res, 500, { error: error.message }));
+    }
+    else if (pathname === '/api/smartthings/devices' && req.method === 'GET') {
+        fetchSmartThingsDevices().then((devices) => sendJson(res, 200, { devices: devices })).catch((error) => sendJson(res, 500, { error: error.message }));
+    }
+    else if (pathname === '/api/smartthings/device/control' && req.method === 'POST') {
+        const chunks = [];
+        req.on('data', (c) => chunks.push(c));
+        req.on('end', () => {
+            try {
+                const payload = JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}');
+                const deviceId = payload.deviceId;
+                const command = payload.command === 'off' ? 'off' : 'on';
+                sendSmartThingsCommand(deviceId, command)
+                    .then(() => fetchSmartThingsDevices())
+                    .then(() => sendJson(res, 200, { success: true }))
+                    .catch((error) => sendJson(res, 500, { error: error.message }));
+            } catch (error) {
+                sendJson(res, 400, { error: error.message });
+            }
+        });
+    }
+
     // 6. API для АДМИНКИ
     else if (pathname === '/api/set') {
         const query = parsedUrl.query;
@@ -1388,6 +1629,8 @@ const serverLocalhost = http.createServer((req, res) => {
             if (!globalState.music) globalState.music = { title: '', artist: '', progressPercent: 0 };
             if (query.musicTitle) globalState.music.title = query.musicTitle;
             if (query.musicArtist) globalState.music.artist = query.musicArtist;
+            if (query.musicStreamUrl) runtimeConfig.musicStreamUrl = query.musicStreamUrl;
+            globalState.music.streamUrl = runtimeConfig.musicStreamUrl;
             if (typeof query.musicProgress !== 'undefined') {
                 let p = parseInt(query.musicProgress, 10);
                 if (isNaN(p)) p = 0;

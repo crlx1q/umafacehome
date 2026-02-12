@@ -1013,6 +1013,7 @@
                 </div>
             </div>
         </div>
+        <audio id="musicStreamPlayer" preload="none" style="display:none;"></audio>
         <!-- Boot -->
         <div class="widget-screen boot-screen" id="bootWidget">
             <div class="boot-title">UmaAI</div>
@@ -1183,6 +1184,7 @@
         var elMusicTitle = document.getElementById('musicTitle');
         var elMusicArtist = document.getElementById('musicArtist');
         var elMusicProgressFill = document.getElementById('musicProgressFill');
+        var musicStreamPlayer = document.getElementById('musicStreamPlayer');
         var elBootBar = document.getElementById('bootBar');
         var elBootCubes = elBootBar ? elBootBar.getElementsByClassName('boot-cube') : [];
         
@@ -1922,6 +1924,15 @@
             setElementText(elMusicArtist, music.artist || '');
             // Заглушка прогресса — фиксированная ширина, потом можно привязать к времени
             elMusicProgressFill.style.width = (music.progressPercent != null ? music.progressPercent : 30) + '%';
+            if (music.streamUrl && musicStreamPlayer) {
+                if (musicStreamPlayer.src !== music.streamUrl) {
+                    musicStreamPlayer.src = music.streamUrl;
+                    if (musicStreamPlayer.load) musicStreamPlayer.load();
+                }
+                if (musicStreamPlayer.paused && musicStreamPlayer.play) {
+                    musicStreamPlayer.play()['catch'](function(){});
+                }
+            }
         }
 
         // --- VIBE (ФОТОРАМКА) ---
